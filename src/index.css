@@ -1,0 +1,230 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* Default (Light) variables */
+  :root {
+    --bg-app: 248 250 252; /* Slate 50 */
+    --bg-panel: 255 255 255; /* White */
+    --text-primary: 15 23 42; /* Slate 900 */
+    --text-muted: 100 116 139; /* Slate 500 */
+    --border-base: 226 232 240; /* Slate 200 */
+    --accent-primary: 14 165 233; /* Sky 500 */
+    --accent-glow: 14 165 233; /* Sky 500 */
+  }
+
+  /* Dark Theme Overrides */
+  [data-theme='dark'] {
+    --bg-app: 15 23 42; /* Slate 900 */
+    --bg-panel: 30 41 59; /* Slate 800 */
+    --text-primary: 241 245 249; /* Slate 100 */
+    --text-muted: 148 163 184; /* Slate 400 */
+    --border-base: 51 65 85; /* Slate 700 */
+    --accent-primary: 56 189 248; /* Sky 400 */
+    --accent-glow: 56 189 248;
+  }
+
+  /* Celestial Theme Overrides */
+  [data-theme='celestial'] {
+    --bg-app: 2 6 23; /* Slate 950 */
+    --bg-panel: 30 41 59; /* Slate 800 */
+    --text-primary: 241 245 249; /* Slate 100 */
+    --text-muted: 148 163 184; /* Slate 400 */
+    --border-base: 255 255 255; /* White (used with opacity) */
+    --accent-primary: 56 189 248; /* Sky 400 */
+    --accent-glow: 56 189 248;
+  }
+
+  /* Obsidian Flux Theme Overrides */
+  [data-theme='obsidian'] {
+    --bg-app: 15 17 21; /* #0F1115 - Void Anchor */
+    --bg-panel: 22 27 34; /* #161b22 */
+    --text-primary: 243 244 246; /* Cool White */
+    --text-muted: 156 163 175; /* Cool Gray */
+    --border-base: 139 92 246; /* Violet 500 (used with opacity) */
+    --accent-primary: 139 92 246; /* Violet 500 */
+    --accent-glow: 167 139 250; /* Violet 400 */
+    
+    /* Specific Variables */
+    --flux-gradient: radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.15), transparent 70%);
+    --flux-mesh-gradient: radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1), transparent 60%);
+    --flux-border-color: rgba(139, 92, 246, 0.2);
+  }
+
+  body {
+    @apply bg-app text-primary min-h-screen bg-fixed transition-colors duration-300;
+  }
+
+  [data-theme='celestial'] body {
+    background-image: radial-gradient(circle at 50% 0%, #0f172a 0%, #020617 80%);
+  }
+
+  [data-theme='obsidian'] body {
+    background-color: rgb(var(--bg-app));
+    background-image: var(--flux-gradient);
+  }
+
+  /* Scrollbar Styling */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-app;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-panel rounded-full hover:bg-slate-500/50;
+    border: 1px solid rgb(var(--border-base) / 0.1);
+  }
+}
+
+@layer components {
+  /*
+     Glassmorphism Island
+  */
+  .card-island {
+    @apply bg-panel backdrop-blur-md rounded-2xl shadow-xl p-6 transition-all duration-300;
+    border: 1px solid rgb(var(--border-base) / 1);
+  }
+
+  [data-theme='celestial'] .card-island {
+    @apply bg-panel/40;
+    border: 1px solid rgb(var(--border-base) / 0.05);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+  }
+
+  [data-theme='obsidian'] .card-island {
+    @apply bg-panel/70 backdrop-blur-md;
+    border: 1px solid var(--flux-border-color);
+    box-shadow:
+        inset 0 0 20px rgba(139, 92, 246, 0.05),
+        0 10px 40px -10px rgba(0, 0, 0, 0.5);
+    position: relative;
+    overflow: hidden;
+  }
+
+  [data-theme='obsidian'] .card-island::before {
+    content: "";
+    position: absolute;
+    top: -50%; left: -50%; width: 200%; height: 200%;
+    background: var(--flux-mesh-gradient);
+    z-index: -1;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  /*
+     Interactive Elements (Inputs, Selects)
+  */
+  .input-celestial {
+    @apply w-full px-3 py-2 bg-app border border-border rounded-md text-primary placeholder-muted focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent transition-all duration-200;
+  }
+  
+  [data-theme='celestial'] .input-celestial {
+    @apply bg-app/50;
+  }
+
+  [data-theme='obsidian'] .input-celestial {
+    @apply bg-zinc-900/50 border-violet-500/30 focus:border-violet-500 focus:ring-violet-500/50;
+  }
+}
+
+/* Animations */
+
+/* Small Stars Generation via Box Shadow (Performance Trick) */
+.stars-small {
+  width: 1px;
+  height: 1px;
+  background: transparent;
+  box-shadow: 
+    10vw 10vh #fff, 20vw 80vh #fff, 35vw 40vh #fff, 
+    80vw 10vh #fff, 50vw 50vh #fff, 90vw 90vh #fff,
+    15vw 60vh #fff, 60vw 20vh #fff, 75vw 70vh #fff;
+}
+
+.stars-medium {
+  width: 2px;
+  height: 2px;
+  background: transparent;
+  box-shadow: 
+    5vw 50vh #ffffffaa, 40vw 10vh #ffffffaa, 85vw 30vh #ffffffaa, 
+    25vw 90vh #ffffffaa, 65vw 60vh #ffffffaa;
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes pulse-slower {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes comet-fall {
+  0% {
+    transform: translateX(0) translateY(0) rotate(-45deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-300px) translateY(300px) rotate(-45deg);
+    opacity: 0;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 4s infinite ease-in-out;
+}
+
+.animate-pulse-slower {
+  animation: pulse-slower 7s infinite ease-in-out;
+}
+
+.animate-comet {
+  animation: comet-fall 3s linear forwards;
+}
+
+/* Obsidian Flux Animations */
+
+@keyframes tidal-breath {
+  0% { opacity: 0.3; transform: scale(1); filter: hue-rotate(0deg); }
+  50% { opacity: 0.5; transform: scale(1.05); filter: hue-rotate(5deg); }
+  100% { opacity: 0.3; transform: scale(1); filter: hue-rotate(0deg); }
+}
+
+.animate-tidal {
+  animation: tidal-breath 8s ease-in-out infinite;
+}
+
+/* Viscous Response (Generic) */
+.viscous-hover {
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.viscous-hover:hover {
+  transform: scale(1.02);
+  filter: brightness(1.1);
+}
+
+/* Flux Interactive (Specific to Obsidian) */
+.flux-interactive {
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+[data-theme='obsidian'] .flux-interactive:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow:
+    0 0 30px rgba(139, 92, 246, 0.3),
+    inset 0 0 20px rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.6);
+}
+
+[data-theme='obsidian'] .flux-interactive:active {
+  transform: translateY(1px) scale(0.98);
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.1);
+  transition: all 0.1s ease-out;
+}
