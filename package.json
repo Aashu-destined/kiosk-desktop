@@ -5,16 +5,36 @@
   "description": "Desktop application for Kiosk Transaction Management",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && electron-builder",
+    "build": "tsc && vite build",
+    "package": "npm run build && electron-builder",
     "preview": "vite preview"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "build": {
+    "appId": "com.kiosk.transaction-manager",
+    "publish": {
+      "provider": "github"
+    },
     "asarUnpack": [
       "**/node_modules/better-sqlite3"
-    ]
+    ],
+    "win": {
+      "target": "nsis"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
   },
   "dependencies": {
     "better-sqlite3": "^12.5.0",
