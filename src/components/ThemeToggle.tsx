@@ -3,7 +3,7 @@ import { useTheme, ThemePreference } from '../contexts/ThemeContext';
 import { Sun, Moon, Sparkles, Monitor, Gem } from 'lucide-react';
 
 const ThemeToggle: React.FC = () => {
-  const { preference, setPreference, theme } = useTheme();
+  const { preference, setPreference } = useTheme();
 
   const options: { value: ThemePreference; label: string; icon: React.ReactNode }[] = [
     { value: 'light', label: 'Light', icon: <Sun className="w-4 h-4" /> },

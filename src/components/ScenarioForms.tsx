@@ -5,15 +5,17 @@ interface ScenarioFormProps {
   scenario: ScenarioType;
   onSubmit: (data: ScenarioParams) => void;
   onCancel: () => void;
+  isLoading?: boolean;
 }
 
-export const ScenarioForm: React.FC<ScenarioFormProps> = ({ scenario, onSubmit, onCancel }) => {
+export const ScenarioForm: React.FC<ScenarioFormProps> = ({ scenario, onSubmit, onCancel, isLoading }) => {
   const [formData, setFormData] = useState<ScenarioParams>({
     amount: undefined,
-    fee: undefined,
-    totalReceived: undefined,
-    cashGiven: undefined,
-    transferAmount: undefined,
+    total_settled: undefined,
+    cash_in: undefined,
+    digital_in: undefined,
+    cash_out: undefined,
+    digital_out: undefined,
     customerName: '',
     description: '',
   });
@@ -28,10 +30,11 @@ export const ScenarioForm: React.FC<ScenarioFormProps> = ({ scenario, onSubmit, 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
+    const finalData = { ...formData };
+    onSubmit(finalData);
   };
 
-  const InputField = ({ label, name, type = 'number', placeholder = '' }: any) => (
+  const InputField = ({ label, name, type = 'number', placeholder = '', required = true }: any) => (
     <div className="mb-4">
       <label className="block text-sm font-medium text-slate-300 mb-1">{label}</label>
       <input
@@ -42,38 +45,56 @@ export const ScenarioForm: React.FC<ScenarioFormProps> = ({ scenario, onSubmit, 
         onChange={handleChange}
         className="input-celestial"
         placeholder={placeholder}
-        required
+        required={required}
       />
     </div>
   );
 
   const renderFields = () => {
     switch (scenario) {
-      case 'KIOSK_WITHDRAWAL':
+      case 'KIOSK_WITHDRAWAL_ON_US':
         return (
           <>
-            <InputField label="Withdrawal Amount (₹)" name="amount" />
-            <InputField label="Service Fee (₹)" name="fee" />
+            <InputField label="Cash Given to Customer (₹)" name="amount" />
+            <InputField label="Amount Settled in OD (₹)" name="total_settled" />
           </>
         );
-      case 'PHONEPAY_TO_SAVINGS':
+      case 'KIOSK_WITHDRAWAL_OFF_US':
         return (
           <>
-            <InputField label="Total Received (PhonePe) (₹)" name="totalReceived" />
-            <InputField label="Cash Given to Customer (₹)" name="cashGiven" />
+            <InputField label="Cash Given to Customer (₹)" name="amount" />
+            <InputField label="Amount Settled in OD (₹)" name="total_settled" />
           </>
         );
-      case 'TRANSFER_VIA_SAVINGS':
-      case 'TRANSFER_VIA_CASH':
+      case 'KIOSK_DEPOSIT':
+        return (
+           <>
+            <InputField label="Cash Taken from Customer (₹)" name="amount" />
+            <InputField label="Amount Deducted from OD (₹)" name="total_settled" />
+           </>
+        );
+      case 'PHONEPAY_WITHDRAWAL':
         return (
           <>
-            <InputField label="Total Received (₹)" name="totalReceived" />
-            <InputField label="Transfer Amount (₹)" name="transferAmount" />
+            <InputField label="Cash Given to Customer (₹)" name="amount" />
+            <InputField label="Amount Received in Bank (₹)" name="total_settled" />
+          </>
+        );
+      case 'PHONEPAY_DEPOSIT':
+        return (
+          <>
+            <InputField label="Cash Taken from Customer (₹)" name="amount" />
+            <InputField label="Amount Sent from Bank (₹)" name="total_settled" />
           </>
         );
       case 'SERVICE_SALE':
         return (
-          <InputField label="Sale Amount (₹)" name="amount" />
+          <div className="grid grid-cols-2 gap-4">
+            <InputField label="Cash Received (In) (₹)" name="cash_in" required={false} />
+            <InputField label="Digital Received (In) (₹)" name="digital_in" required={false} />
+            <InputField label="Cash Paid (Out) (₹)" name="cash_out" required={false} />
+            <InputField label="Digital Paid (Out) (₹)" name="digital_out" required={false} />
+          </div>
         );
       default:
         return null;
@@ -121,9 +142,14 @@ export const ScenarioForm: React.FC<ScenarioFormProps> = ({ scenario, onSubmit, 
         </button>
         <button
           type="submit"
-          className="px-4 py-2 text-white bg-comet-500 rounded-md shadow-comet-glow hover:bg-comet-400 transition-all transform hover:-translate-y-0.5"
+          disabled={isLoading}
+          className={`px-4 py-2 text-white rounded-md shadow-comet-glow transition-all transform ${
+            isLoading
+              ? 'bg-comet-500/50 cursor-not-allowed'
+              : 'bg-comet-500 hover:bg-comet-400 hover:-translate-y-0.5'
+          }`}
         >
-          Process Transaction
+          {isLoading ? 'Processing...' : 'Process Transaction'}
         </button>
       </div>
     </form>

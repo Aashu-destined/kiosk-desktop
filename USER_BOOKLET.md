@@ -7,8 +7,8 @@ Welcome to your new **Kiosk Transaction Manager**! This guide will help you unde
 ## 1. Getting Started
 
 When you open the application, you will see two main areas:
-1.  **Sidebar (Left)**: Navigation buttons (Dashboard, Transactions, Accounts, Settings) and Daily Reconciliation tool.
-2.  **Main View (Right)**: The workspace for your selected task.
+1.  **Sidebar (Left)**: Navigation buttons (Dashboard, Transactions, Accounts, Settings), Theme Toggles, and the Daily Reconciliation tool.
+2.  **Main View (Right)**: The workspace for your selected task, featuring the Scenario Engine for transactions.
 
 ---
 
@@ -67,7 +67,19 @@ At the end of the day, verify your cash:
 
 ---
 
-## 5. Frequently Asked Questions
+## 5. Personalizing Your Experience
+
+The application supports multiple themes to suit your work environment:
+*   **Light**: A clean, professional high-contrast theme.
+*   **Dark**: A comfortable slate-based dark mode.
+*   **Celestial**: A premium immersive night theme with deep gradients and a moving starfield animation.
+*   **Obsidian Flux**: A high-performance, ultra-dark theme for focused work.
+
+You can toggle between these themes using the **Theme Toggle** located at the bottom of the sidebar.
+
+---
+
+## 6. Frequently Asked Questions
 
 **Q: What if I make a mistake?**
 A: Currently, you cannot edit a transaction once saved (for security). You can add a "Correction" transaction (feature coming soon) or ask your admin to fix it in the database.

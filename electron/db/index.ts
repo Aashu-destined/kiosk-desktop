@@ -22,7 +22,7 @@ db.exec(schema);
 const seedAccounts = [
     { name: 'Cash', type: 'ASSET' },
     { name: 'OD Account', type: 'LIABILITY' },
-    { name: 'Savings Account', type: 'EQUITY' },
+    { name: 'Bank Account', type: 'ASSET' },
     { name: 'Revenue', type: 'REVENUE' },
     { name: 'Expenses', type: 'EXPENSE' }
 ];

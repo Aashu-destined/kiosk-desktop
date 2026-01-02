@@ -15,6 +15,26 @@ Forget manual debits and credits. Simply select what happened:
 *   **Real-time Dashboard**: Monitor Cash-in-Hand, Daily Profits, and Bank Balances.
 *   **Reconciliation**: Tool to verify physical cash against system records at the end of the day.
 
+### 🎨 Advanced Theme System
+*   **Multi-Theme Support**: Choose between **Light**, **Dark**, **Celestial** (with Starfield animations), and **Obsidian Flux**.
+*   **Integrated UI**: Persistent theme settings across sessions.
+
+## Tech Stack & Handlers
+
+### Frontend
+- **React (Vite)** with **TypeScript**
+- **Tailwind CSS** for styling
+- **Lucide React** for icons
+
+### Backend (Electron)
+- **SQLite** (`better-sqlite3`) for local storage.
+- **IPC Handlers**:
+    - `accountHandler`: Account balances and management.
+    - `dashboardHandler`: Financial metrics and dashboard data.
+    - `reconciliationHandler`: Daily cash verification logic.
+    - `settingsHandler`: Persistent application configuration.
+    - `transactionHandler`: Scenario-based transaction processing.
+
 ## Installation
 
 1.  Clone the repository:

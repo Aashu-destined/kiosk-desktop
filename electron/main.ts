@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'node:path'
 import './db/index' // Initialize DB
-import { handleGetTransactions, handleAddTransaction } from './handlers/transactionHandler'
+import './handlers/transactionHandler'
 import { handleGetSettings, handleSaveSetting } from './handlers/settingsHandler'
 import { handleGetAccounts, handleAddAccount, handleUpdateAccount } from './handlers/accountHandler'
 import { handleGetDailyRecord, handleSaveDailyRecord } from './handlers/reconciliationHandler'
@@ -67,9 +67,7 @@ app.on('activate', () => {
 })
 
 app.whenReady().then(() => {
-  // Transaction IPCs
-  ipcMain.handle('db:get-transactions', handleGetTransactions)
-  ipcMain.handle('db:add-transaction', handleAddTransaction)
+  // Transaction IPCs are handled in transactionHandler.ts
 
   // Account IPCs
   ipcMain.handle('db:get-accounts', handleGetAccounts)

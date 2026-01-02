@@ -30,14 +30,14 @@ const Dashboard: React.FC = () => {
         <div className="card-island flux-interactive">
           <h3 className="text-sm font-medium text-muted mb-1">Today's Profit (Fees)</h3>
           <div className="text-3xl font-bold text-accent">
-            ${dashboardStats.dailyOverview.totalProfit.toFixed(2)}
+            ₹{dashboardStats.dailyOverview.totalProfit.toFixed(2)}
           </div>
         </div>
         
         <div className="card-island flux-interactive">
           <h3 className="text-sm font-medium text-muted mb-1">Current Cash Position</h3>
           <div className="text-3xl font-bold text-accent">
-            ${dashboardStats.dailyOverview.cashBalance.toFixed(2)}
+            ₹{dashboardStats.dailyOverview.cashBalance.toFixed(2)}
           </div>
         </div>
 
@@ -47,7 +47,7 @@ const Dashboard: React.FC = () => {
             <div className="space-y-1 mt-2">
               {dashboardStats.dailyOverview.alerts.map((alert, i) => (
                 <div key={i} className="text-sm text-red-500 font-medium">
-                  {alert.name}: ${alert.current_balance.toFixed(2)}
+                  {alert.name}: ₹{alert.current_balance.toFixed(2)}
                 </div>
               ))}
             </div>
@@ -74,7 +74,7 @@ const Dashboard: React.FC = () => {
                           <div key={idx} className="flex flex-col items-center flex-1 group relative">
                               <div className="w-full bg-blue-100 rounded-t hover:bg-blue-200 transition-all relative" style={{ height: `${heightPct}%` }}>
                                   <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded whitespace-nowrap z-10">
-                                    ${item.profit.toFixed(2)}
+                                    ₹{item.profit.toFixed(2)}
                                   </div>
                               </div>
                               <div className="text-xs text-gray-500 mt-2 rotate-45 origin-left translate-x-2 md:rotate-0 md:translate-x-0 truncate w-full text-center">
@@ -104,7 +104,7 @@ const Dashboard: React.FC = () => {
                   <tr key={idx}>
                     <td className="px-4 py-2 text-primary">{item.type}</td>
                     <td className="px-4 py-2 text-right text-muted">{item.count}</td>
-                    <td className="px-4 py-2 text-right font-mono font-medium text-primary">${item.volume.toFixed(2)}</td>
+                    <td className="px-4 py-2 text-right font-mono font-medium text-primary">₹{item.volume.toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>

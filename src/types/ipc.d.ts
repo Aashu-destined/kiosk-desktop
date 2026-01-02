@@ -49,7 +49,7 @@ export interface DashboardStats {
     totalProfit: number;
     cashBalance: number;
     odBalance: number;
-    savingsBalance: number;
+    bankBalance: number;
     alerts: Array<{ name: string; current_balance: number }>;
   };
   serviceAnalysis: Array<{ type: string; count: number; volume: number }>;

@@ -63,9 +63,10 @@ const Transactions: React.FC<TransactionsProps> = ({ accounts, onTransactionAdde
       ) : (
         <div className="mb-8">
           <ScenarioForm 
-            scenario={selectedScenario} 
-            onSubmit={handleScenarioSubmit} 
-            onCancel={() => setSelectedScenario(null)} 
+            scenario={selectedScenario}
+            onSubmit={handleScenarioSubmit}
+            onCancel={() => setSelectedScenario(null)}
+            isLoading={isSubmitting}
           />
         </div>
       )}

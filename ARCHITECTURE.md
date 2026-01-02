@@ -8,17 +8,19 @@ The application is built on **Electron** (backend/main process) and **React** (f
 
 ## 2. Theme Management System
 
-The application utilizes a flexible multi-theme architecture supporting **Light**, **Dark**, and **Celestial** modes, managed via React Context and CSS Variables.
+The application utilizes a flexible multi-theme architecture managed via React Context and CSS Variables, allowing for dynamic visual updates without component re-renders.
 
 *   **Architecture:**
-    *   **State:** managed by `ThemeContext` (persisted in `localStorage`).
-    *   **Implementation:** Semantic CSS variables (e.g., `--bg-app`, `--text-primary`) injected via data attributes (`data-theme="celestial"`).
-    *   **Tailwind Integration:** Tailwind config maps semantic names to these CSS variables, allowing components to remain theme-agnostic.
+    *   **State:** Managed by `ThemeContext`, which synchronizes with `localStorage` for persistence and respects system preferences.
+    *   **Implementation:** Semantic CSS variables (e.g., `--bg-app`, `--text-primary`) are injected into the document root via data attributes (e.g., `data-theme="celestial"`).
+    *   **Tailwind Integration:** The `tailwind.config.js` maps semantic names to these CSS variables, ensuring the UI remains theme-agnostic.
+    *   **Animations:** Specialized components like `Starfield.tsx` provide immersive backgrounds for specific themes.
 
 *   **Available Themes:**
     1.  **Light:** Professional, high-contrast business theme.
     2.  **Dark:** Standard slate-based dark mode.
-    3.  **Celestial:** Premium immersive night theme with deep gradients and "Comet" accents (see `plans/theme_celestial_night.md`).
+    3.  **Celestial:** Premium immersive night theme with deep gradients, "Comet" accents, and an animated starfield (see `plans/theme_celestial_night.md`).
+    4.  **Obsidian Flux:** Ultra-dark, high-performance theme designed for low-light environments (see `plans/theme_obsidian_flux.md`).
 
 ## 3. Database Schema (SQLite)
 
@@ -86,24 +88,31 @@ The frontend will not send raw debits/credits. Instead, it sends a "Scenario Req
 
 ## 5. IPC Interface
 
-### Channels
+The bridge between the Renderer and Main processes is organized into functional handlers, each exposed via specific IPC channels.
 
-#### Transactions
-*   **`db:add-transaction-group`**
-    *   **Args:** `{ scenario: string, date: string, description?: string, entries: Array<{accountId: number, type: 'DEBIT'|'CREDIT', amount: number}> }`
-    *   **Returns:** `Promise<{ success: true, groupId: number }>`
-*   **`db:get-transaction-groups`**
-    *   **Args:** `{ limit?: number, offset?: number, startDate?: string, endDate?: string }`
-    *   **Returns:** `Promise<TransactionGroupWithEntries[]>`
+### Handlers & Channels
 
-#### Accounts
-*   **`db:get-accounts`**
-    *   **Args:** `void`
-    *   **Returns:** `Promise<Account[]>`
+#### `transactionHandler`
+Handles the core "Scenario Engine" logic and double-entry ledger records.
+*   **`db:add-transaction-group`**: Commits a business event and its associated ledger entries.
+*   **`db:get-transaction-groups`**: Retrieves history with filtering support.
 
-#### Reconciliation
-*   **`db:get-daily-record`**
-*   **`db:save-daily-record`**
+#### `accountHandler`
+Manages the chart of accounts and balances.
+*   **`db:get-accounts`**: Returns the list of all accounts with their current balances.
+
+#### `dashboardHandler`
+Provides aggregated data for the dashboard view.
+*   **`db:get-dashboard-stats`**: Calculates "Today's Profit" and current "Cash Position".
+
+#### `reconciliationHandler`
+Handles the end-of-day cash counting logic.
+*   **`db:get-daily-record`**: Fetches reconciliation data for a specific date.
+*   **`db:save-daily-record`**: Persists the physical count and calculated variance.
+
+#### `settingsHandler`
+Manages application-wide persistent settings.
+*   **`settings:get`** / **`settings:set`**: Key-value storage for app behavior.
 
 ## 6. Project Structure
 

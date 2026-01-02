@@ -7,9 +7,17 @@ export const handleGetDashboardStats = async (_event: any) => {
         // We look for transactions where fee > 0 created today.
         const today = new Date().toISOString().split('T')[0];
         const profitStmt = db.prepare(`
-            SELECT SUM(fee) as totalProfit 
-            FROM transactions 
-            WHERE date = ?
+            SELECT SUM(
+                CASE
+                    WHEN t.type = 'CREDIT' THEN t.amount
+                    ELSE -t.amount
+                END
+            ) as totalProfit
+            FROM transactions t
+            JOIN accounts a ON t.account_id = a.id
+            WHERE a.type = 'REVENUE' AND t.group_id IN (
+                SELECT id FROM transaction_groups WHERE date = ?
+            )
         `);
         const profitResult = profitStmt.get(today) as { totalProfit: number };
         const totalProfit = profitResult?.totalProfit || 0;
@@ -49,9 +57,10 @@ export const handleGetDashboardStats = async (_event: any) => {
 
         // 4. Trend Analysis (Daily profit for last 7 days)
         const trendStmt = db.prepare(`
-            SELECT date, SUM(fee) as profit
+            SELECT group_id, SUM(amount) as profit
             FROM transactions
-            WHERE date >= date('now', '-7 days')
+            JOIN accounts ON transactions.account_id = accounts.id
+            WHERE accounts.type = 'REVENUE' AND date >= date('now', '-7 days')
             GROUP BY date
             ORDER BY date ASC
         `);

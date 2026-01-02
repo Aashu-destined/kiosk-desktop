@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowDownToLine, Smartphone, Repeat, Banknote, Printer } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Smartphone, Layers, Printer, Wallet } from 'lucide-react';
 import clsx from 'clsx';
 import { ScenarioType } from '../engines/ScenarioLogic';
 
@@ -10,32 +10,38 @@ interface ScenarioSelectorProps {
 
 const scenarios: Array<{ id: ScenarioType; label: string; icon: React.ReactNode; color: string }> = [
   { 
-    id: 'KIOSK_WITHDRAWAL', 
-    label: 'Kiosk Withdrawal', 
+    id: 'KIOSK_WITHDRAWAL_ON_US', 
+    label: 'Kiosk On-Us (Withdrawal)', 
     icon: <ArrowDownToLine className="w-6 h-6" />,
     color: 'bg-comet-500/10 text-comet-400 border-comet-500/30 hover:bg-comet-500/20 hover:border-comet-400'
   },
+  { 
+    id: 'KIOSK_WITHDRAWAL_OFF_US', 
+    label: 'Kiosk Off-Us (Withdrawal)', 
+    icon: <Wallet className="w-6 h-6" />, // Changed icon for distinction
+    color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-400'
+  },
+  { 
+    id: 'KIOSK_DEPOSIT', 
+    label: 'Kiosk Deposit', 
+    icon: <ArrowUpFromLine className="w-6 h-6" />,
+    color: 'bg-teal-500/10 text-teal-400 border-teal-500/30 hover:bg-teal-500/20 hover:border-teal-400'
+  },
   {
-    id: 'PHONEPAY_TO_SAVINGS',
-    label: 'PhonePe -> Savings',
+    id: 'PHONEPAY_WITHDRAWAL',
+    label: 'PhonePe Withdrawal',
     icon: <Smartphone className="w-6 h-6" />,
     color: 'bg-purple-500/10 text-purple-400 border-purple-500/30 hover:bg-purple-500/20 hover:border-purple-400'
   },
   {
-    id: 'TRANSFER_VIA_SAVINGS',
-    label: 'Transfer (via Savings)',
-    icon: <Repeat className="w-6 h-6" />,
+    id: 'PHONEPAY_DEPOSIT',
+    label: 'PhonePe Deposit',
+    icon: <Layers className="w-6 h-6" />, 
     color: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/30 hover:bg-indigo-500/20 hover:border-indigo-400'
   },
   {
-    id: 'TRANSFER_VIA_CASH',
-    label: 'Transfer (via Cash)',
-    icon: <Banknote className="w-6 h-6" />,
-    color: 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20 hover:border-green-400'
-  },
-  {
     id: 'SERVICE_SALE',
-    label: 'Service Sale',
+    label: 'Service Sale / General',
     icon: <Printer className="w-6 h-6" />,
     color: 'bg-orange-500/10 text-orange-400 border-orange-500/30 hover:bg-orange-500/20 hover:border-orange-400'
   },
@@ -43,7 +49,7 @@ const scenarios: Array<{ id: ScenarioType; label: string; icon: React.ReactNode;
 
 export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({ onSelect, selected }) => {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
       {scenarios.map((s) => (
         <button
           key={s.id}
