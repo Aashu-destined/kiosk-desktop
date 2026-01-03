@@ -1,17 +1,15 @@
 import React from 'react';
 import Sidebar from './Sidebar';
 import Starfield from './Starfield';
-import { Account } from '../types/ipc';
 
 interface LayoutProps {
   activeTab: string;
   setActiveTab: (tab: 'dashboard' | 'transactions' | 'accounts' | 'settings') => void;
-  accounts: Account[];
   onAddAccount: () => void;
   children: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, accounts, onAddAccount, children }) => {
+const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, onAddAccount, children }) => {
   return (
     <div className="min-h-screen bg-transparent flex relative">
       <Starfield />
@@ -19,8 +17,7 @@ const Layout: React.FC<LayoutProps> = ({ activeTab, setActiveTab, accounts, onAd
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        accounts={accounts} 
-        onAddAccount={onAddAccount} 
+        onAddAccount={onAddAccount}
       />
       
       {/* Main Content */}

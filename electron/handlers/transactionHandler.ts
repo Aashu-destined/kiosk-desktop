@@ -2,7 +2,7 @@ import { ipcMain } from 'electron';
 import db from '../db';
 import { TransactionGroupInput } from '../../src/types/ipc';
 
-ipcMain.handle('db:add-transaction-group', async (_, groupData: TransactionGroupInput) => {
+ipcMain.handle('db:add-transaction-group', async (_: any, groupData: TransactionGroupInput) => {
     try {
         const insertGroup = db.prepare(`
             INSERT INTO transaction_groups (scenario_type, date, customer_name, description, timestamp)
@@ -70,6 +70,14 @@ ipcMain.handle('db:get-transaction-groups', async (_, { limit = 50, offset = 0, 
 
         const groups = db.prepare(query).all({ limit, offset, startDate, endDate });
 
+        // Get total count for pagination
+        let countQuery = 'SELECT COUNT(*) as count FROM transaction_groups';
+        if (startDate && endDate) {
+            countQuery += ' WHERE date BETWEEN @startDate AND @endDate';
+        }
+        const totalResult = db.prepare(countQuery).get({ startDate, endDate }) as { count: number };
+        const total = totalResult ? totalResult.count : 0;
+
         // Fetch entries for each group (N+1 query, but manageable for small limits or can use JOIN)
         // For UI display, usually we just need the group description, but let's fetch entries for completeness
         const getEntries = db.prepare('SELECT * FROM transactions WHERE group_id = ?');
@@ -79,7 +87,7 @@ ipcMain.handle('db:get-transaction-groups', async (_, { limit = 50, offset = 0, 
             entries: getEntries.all(group.id)
         }));
 
-        return groupsWithEntries;
+        return { groups: groupsWithEntries, total };
     } catch (error) {
         console.error('Failed to get transaction groups:', error);
         throw error;

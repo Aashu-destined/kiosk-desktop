@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ScenarioType, ScenarioParams } from '../engines/ScenarioLogic';
+import { SCENARIO_CONFIG } from '../config/scenarioConfig';
 
 interface ScenarioFormProps {
   scenario: ScenarioType;
@@ -7,6 +8,32 @@ interface ScenarioFormProps {
   onCancel: () => void;
   isLoading?: boolean;
 }
+
+interface InputFieldProps {
+  label: string;
+  name: string;
+  type?: string;
+  placeholder?: string;
+  required?: boolean;
+  value: any;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}
+
+const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'number', placeholder = '', required = true, value, onChange }) => (
+  <div className="mb-4">
+    <label htmlFor={name} className="block text-sm font-medium text-slate-300 mb-1">{label}</label>
+    <input
+      id={name}
+      type={type}
+      name={name}
+      value={value || ''}
+      onChange={onChange}
+      className="input-celestial"
+      placeholder={placeholder}
+      required={required}
+    />
+  </div>
+);
 
 export const ScenarioForm: React.FC<ScenarioFormProps> = ({ scenario, onSubmit, onCancel, isLoading }) => {
   const [formData, setFormData] = useState<ScenarioParams>({
@@ -34,71 +61,32 @@ export const ScenarioForm: React.FC<ScenarioFormProps> = ({ scenario, onSubmit, 
     onSubmit(finalData);
   };
 
-  const InputField = ({ label, name, type = 'number', placeholder = '', required = true }: any) => (
-    <div className="mb-4">
-      <label className="block text-sm font-medium text-slate-300 mb-1">{label}</label>
-      <input
-        type={type}
-        name={name}
-        // @ts-ignore
-        value={formData[name] || ''}
-        onChange={handleChange}
-        className="input-celestial"
-        placeholder={placeholder}
-        required={required}
-      />
-    </div>
-  );
-
   const renderFields = () => {
-    switch (scenario) {
-      case 'KIOSK_WITHDRAWAL_ON_US':
-        return (
-          <>
-            <InputField label="Cash Given to Customer (₹)" name="amount" />
-            <InputField label="Amount Settled in OD (₹)" name="total_settled" />
-          </>
-        );
-      case 'KIOSK_WITHDRAWAL_OFF_US':
-        return (
-          <>
-            <InputField label="Cash Given to Customer (₹)" name="amount" />
-            <InputField label="Amount Settled in OD (₹)" name="total_settled" />
-          </>
-        );
-      case 'KIOSK_DEPOSIT':
-        return (
-           <>
-            <InputField label="Cash Taken from Customer (₹)" name="amount" />
-            <InputField label="Amount Deducted from OD (₹)" name="total_settled" />
-           </>
-        );
-      case 'PHONEPAY_WITHDRAWAL':
-        return (
-          <>
-            <InputField label="Cash Given to Customer (₹)" name="amount" />
-            <InputField label="Amount Received in Bank (₹)" name="total_settled" />
-          </>
-        );
-      case 'PHONEPAY_DEPOSIT':
-        return (
-          <>
-            <InputField label="Cash Taken from Customer (₹)" name="amount" />
-            <InputField label="Amount Sent from Bank (₹)" name="total_settled" />
-          </>
-        );
-      case 'SERVICE_SALE':
-        return (
-          <div className="grid grid-cols-2 gap-4">
-            <InputField label="Cash Received (In) (₹)" name="cash_in" required={false} />
-            <InputField label="Digital Received (In) (₹)" name="digital_in" required={false} />
-            <InputField label="Cash Paid (Out) (₹)" name="cash_out" required={false} />
-            <InputField label="Digital Paid (Out) (₹)" name="digital_out" required={false} />
-          </div>
-        );
-      default:
-        return null;
+    const config = SCENARIO_CONFIG[scenario];
+    if (!config) return null;
+
+    const fields = config.fields.map((field) => (
+      <InputField
+        key={field.name}
+        label={field.label}
+        name={field.name}
+        required={field.required !== false}
+        type={field.type || 'number'}
+        placeholder={field.placeholder}
+        value={formData[field.name as keyof ScenarioParams]}
+        onChange={handleChange}
+      />
+    ));
+
+    if (config.layout === 'grid') {
+      return (
+        <div className="grid grid-cols-2 gap-4">
+          {fields}
+        </div>
+      );
     }
+
+    return <>{fields}</>;
   };
 
   return (
@@ -111,8 +99,9 @@ export const ScenarioForm: React.FC<ScenarioFormProps> = ({ scenario, onSubmit, 
 
       <div className="grid grid-cols-2 gap-4 mb-4">
         <div>
-           <label className="block text-sm font-medium text-slate-300 mb-1">Customer Name (Optional)</label>
+           <label htmlFor="customerName" className="block text-sm font-medium text-slate-300 mb-1">Customer Name (Optional)</label>
            <input
+             id="customerName"
              type="text"
              name="customerName"
              value={formData.customerName}
@@ -121,8 +110,9 @@ export const ScenarioForm: React.FC<ScenarioFormProps> = ({ scenario, onSubmit, 
            />
         </div>
         <div>
-           <label className="block text-sm font-medium text-slate-300 mb-1">Description (Optional)</label>
+           <label htmlFor="description" className="block text-sm font-medium text-slate-300 mb-1">Description (Optional)</label>
            <input
+             id="description"
              type="text"
              name="description"
              value={formData.description}

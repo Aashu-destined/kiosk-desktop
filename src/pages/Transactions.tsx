@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { TransactionGroup, Account } from '../types/ipc';
+import { TransactionGroup } from '../types/ipc';
 import { ScenarioSelector } from '../components/ScenarioSelector';
 import { ScenarioForm } from '../components/ScenarioForms';
 import { ScenarioType, ScenarioParams, generateLedgerEntries } from '../engines/ScenarioLogic';
+import { useData } from '../contexts/DataContext';
 
-interface TransactionsProps {
-  accounts: Account[];
-  onTransactionAdded: () => void;
-}
-
-const Transactions: React.FC<TransactionsProps> = ({ accounts, onTransactionAdded }) => {
+const Transactions: React.FC = () => {
+  const { accounts, refreshData } = useData();
   const [transactionGroups, setTransactionGroups] = useState<TransactionGroup[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const LIMIT = 20;
+
   const [selectedScenario, setSelectedScenario] = useState<ScenarioType | null>(null);
   
   // Loading state for submitting
@@ -18,12 +19,14 @@ const Transactions: React.FC<TransactionsProps> = ({ accounts, onTransactionAdde
 
   useEffect(() => {
     loadTransactionGroups();
-  }, []);
+  }, [currentPage]);
 
   const loadTransactionGroups = async () => {
     try {
-      const groups = await window.ipcRenderer.invoke('db:get-transaction-groups');
-      setTransactionGroups(groups);
+      const offset = (currentPage - 1) * LIMIT;
+      const response = await window.ipcRenderer.invoke('db:get-transaction-groups', { limit: LIMIT, offset });
+      setTransactionGroups(response.groups);
+      setTotalCount(response.total);
     } catch (err) {
       console.error('Failed to load transaction groups:', err);
     }
@@ -41,7 +44,7 @@ const Transactions: React.FC<TransactionsProps> = ({ accounts, onTransactionAdde
       if (result.success) {
         setSelectedScenario(null); // Close form
         loadTransactionGroups(); // Reload list
-        onTransactionAdded(); // Notify parent
+        refreshData();
       } else {
         alert('Failed to save transaction');
       }
@@ -113,6 +116,27 @@ const Transactions: React.FC<TransactionsProps> = ({ accounts, onTransactionAdde
               )}
             </tbody>
           </table>
+        </div>
+        
+        {/* Pagination Controls */}
+        <div className="flex justify-between items-center p-4 border-t border-celestial-border">
+          <button
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+            className="px-4 py-2 text-sm bg-celestial-deep/50 text-slate-300 rounded hover:bg-celestial-deep disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Previous
+          </button>
+          <span className="text-sm text-slate-400">
+            Page {currentPage} of {Math.ceil(totalCount / LIMIT) || 1}
+          </span>
+          <button
+            disabled={currentPage >= Math.ceil(totalCount / LIMIT)}
+            onClick={() => setCurrentPage(prev => prev + 1)}
+            className="px-4 py-2 text-sm bg-celestial-deep/50 text-slate-300 rounded hover:bg-celestial-deep disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Next
+          </button>
         </div>
       </div>
     </>

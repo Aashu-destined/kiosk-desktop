@@ -69,9 +69,14 @@ export interface TransactionGroupInput {
   }>;
 }
 
+export interface TransactionGroupsResponse {
+  groups: TransactionGroup[];
+  total: number;
+}
+
 export interface IpcRenderer {
   // Transactions
-  invoke(channel: 'db:get-transaction-groups', args?: { limit?: number; offset?: number; startDate?: string; endDate?: string }): Promise<TransactionGroup[]>;
+  invoke(channel: 'db:get-transaction-groups', args?: { limit?: number; offset?: number; startDate?: string; endDate?: string }): Promise<TransactionGroupsResponse>;
   invoke(channel: 'db:add-transaction-group', args: TransactionGroupInput): Promise<{ success: boolean; groupId: number }>;
 
   // Accounts

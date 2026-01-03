@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Account } from '../types/ipc';
 import { Plus, Edit2, X, Check } from 'lucide-react';
+import { useData } from '../contexts/DataContext';
 
-const Accounts: React.FC = () => {
-  const [accounts, setAccounts] = useState<Account[]>([]);
+interface AccountsProps {
+  autoOpenAdd?: boolean;
+  onAutoOpenHandled?: () => void;
+}
+
+const Accounts: React.FC<AccountsProps> = ({ autoOpenAdd, onAutoOpenHandled }) => {
+  const { accounts, refreshData } = useData();
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
@@ -14,17 +20,11 @@ const Accounts: React.FC = () => {
   const [newAccountBalance, setNewAccountBalance] = useState(0);
 
   useEffect(() => {
-    loadAccounts();
-  }, []);
-
-  const loadAccounts = async () => {
-    try {
-      const data = await window.ipcRenderer.invoke('db:get-accounts');
-      setAccounts(data);
-    } catch (error) {
-      console.error('Failed to load accounts:', error);
+    if (autoOpenAdd) {
+      setIsAdding(true);
+      onAutoOpenHandled?.();
     }
-  };
+  }, [autoOpenAdd, onAutoOpenHandled]);
 
   const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,7 +38,7 @@ const Accounts: React.FC = () => {
       setNewAccountName('');
       setNewAccountType('cash');
       setNewAccountBalance(0);
-      loadAccounts();
+      refreshData();
     } catch (error) {
       console.error('Failed to add account:', error);
     }
@@ -62,7 +62,7 @@ const Accounts: React.FC = () => {
       });
       setEditingId(null);
       setEditName('');
-      loadAccounts();
+      refreshData();
     } catch (error) {
       console.error('Failed to update account:', error);
     }
@@ -88,10 +88,11 @@ const Accounts: React.FC = () => {
             <form onSubmit={handleAddAccount}>
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="account-name" className="block text-sm font-medium text-gray-700 mb-1">
                     Account Name
                   </label>
                   <input
+                    id="account-name"
                     type="text"
                     required
                     className="w-full p-2 border rounded"
@@ -100,10 +101,11 @@ const Accounts: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="account-type" className="block text-sm font-medium text-gray-700 mb-1">
                     Type
                   </label>
                   <select
+                    id="account-type"
                     className="w-full p-2 border rounded"
                     value={newAccountType}
                     onChange={(e) => setNewAccountType(e.target.value)}
@@ -114,10 +116,11 @@ const Accounts: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="account-balance" className="block text-sm font-medium text-gray-700 mb-1">
                     Initial Balance
                   </label>
                   <input
+                    id="account-balance"
                     type="number"
                     step="0.01"
                     required
@@ -191,7 +194,7 @@ const Accounts: React.FC = () => {
             <div className="mt-4 pt-4 border-t border-gray-100">
               <p className="text-sm text-gray-500">Current Balance</p>
               <p className={`text-2xl font-bold ${account.current_balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                ${account.current_balance.toFixed(2)}
+                ₹{account.current_balance.toFixed(2)}
               </p>
             </div>
           </div>

@@ -125,13 +125,13 @@ export const handleSaveDailyRecord = async (_event: any, args: SaveDailyRecordAr
 
         if (existing) {
             db.prepare(`
-                UPDATE daily_records 
-                SET opening_balance = ?, closing_balance = ?, physical_count = ?, difference = ?, status = ?, notes = ?
+                UPDATE daily_records
+                SET cash_opening = ?, cash_closing_calculated = ?, cash_physical_count = ?, difference = ?, status = ?, notes = ?
                 WHERE date = ?
             `).run(openingBalance, closingBalance, physicalCount, difference, status, notes, date);
         } else {
             db.prepare(`
-                INSERT INTO daily_records (date, opening_balance, closing_balance, physical_count, difference, status, notes)
+                INSERT INTO daily_records (date, cash_opening, cash_closing_calculated, cash_physical_count, difference, status, notes)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             `).run(date, openingBalance, closingBalance, physicalCount, difference, status, notes);
         }

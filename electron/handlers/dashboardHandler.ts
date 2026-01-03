@@ -42,7 +42,7 @@ export const handleGetDashboardStats = async (_event: any) => {
             cashBalance = specificCash.current_balance;
         } else {
              // Fallback: Sum of all assets if no specific 'Cash' account
-             const allAssetsStmt = db.prepare("SELECT SUM(current_balance) as total FROM accounts WHERE type = 'Asset'");
+             const allAssetsStmt = db.prepare("SELECT SUM(current_balance) as total FROM accounts WHERE type = 'ASSET'");
              const allAssets = allAssetsStmt.get() as { total: number };
              cashBalance = allAssets?.total || 0;
         }
@@ -57,12 +57,13 @@ export const handleGetDashboardStats = async (_event: any) => {
 
         // 4. Trend Analysis (Daily profit for last 7 days)
         const trendStmt = db.prepare(`
-            SELECT group_id, SUM(amount) as profit
-            FROM transactions
-            JOIN accounts ON transactions.account_id = accounts.id
-            WHERE accounts.type = 'REVENUE' AND date >= date('now', '-7 days')
-            GROUP BY date
-            ORDER BY date ASC
+            SELECT tg.date, SUM(CASE WHEN t.type = 'CREDIT' THEN t.amount ELSE -t.amount END) as profit
+            FROM transactions t
+            JOIN accounts a ON t.account_id = a.id
+            JOIN transaction_groups tg ON t.group_id = tg.id
+            WHERE a.type = 'REVENUE' AND tg.date >= date('now', '-7 days')
+            GROUP BY tg.date
+            ORDER BY tg.date ASC
         `);
         const trendAnalysis = trendStmt.all();
 

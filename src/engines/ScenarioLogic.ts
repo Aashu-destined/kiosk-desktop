@@ -104,18 +104,46 @@ export const generateLedgerEntries = (
             const cashGivenOffUs = Number(params.amount);
             const profitOffUs = settledOffUs - cashGivenOffUs;
 
+            // FIX: Ensure credits and debits balance.
+            // Previous Logic: Debit OD (100), Credit Cash (100). Debit Cash (10), Credit Revenue (10). Total Debit 110, Total Credit 110.
+            // Wait, let's re-verify the logic.
+            // OD (Asset) Debit 100 -> Balance Increases by 100.
+            // Cash (Asset) Credit 100 -> Balance Decreases by 100.
+            // Cash (Asset) Debit 10 -> Balance Increases by 10.
+            // Revenue (Revenue) Credit 10 -> Balance Increases by 10.
+            // Net Asset Change: +100 - 100 + 10 = +10.
+            // Net Equity/Revenue Change: +10.
+            // Assets = Liabilities + Equity. +10 = 0 + 10. Logic holds.
+
+            // HOWEVER, let's simplify for clarity.
+            // Usually, we just dispense cash (Principal) and receive settlement (Principal + Fee).
+            // But here, the settlement IS the source of truth for money coming in.
+            // Money In: Settlement (100) -> OD.
+            // Money Out: Cash Given (90) -> Customer.
+            // Net: +10 (Profit).
+
             entries = [
                 { account_id: odId, type: 'DEBIT', amount: settledOffUs, description: `Bank Settlement (In) - Off-us` },
-                { account_id: cashId, type: 'CREDIT', amount: settledOffUs, description: 'Principal Cash Out' },
+                { account_id: cashId, type: 'CREDIT', amount: cashGivenOffUs, description: 'Cash Out to Customer' }, // Only credit what actually left
             ];
 
-            if (profitOffUs > 0) {
-                entries.push({ account_id: cashId, type: 'DEBIT', amount: profitOffUs, description: 'Fee Collected' });
+            // If settled (100) > given (90), we have an extra 10 in OD? No, OD received 100.
+            // We gave 90 cash.
+            // Assets: OD +100, Cash -90. Net +10.
+            // Equity: Revenue +10.
+            // Balancing:
+            // Debits: OD 100.
+            // Credits: Cash 90.
+            // Difference: 10 (Credit needed to balance). -> Revenue.
+
+             if (profitOffUs > 0) {
                 entries.push({ account_id: revenueId, type: 'CREDIT', amount: profitOffUs, description: 'Service Revenue' });
             } else if (profitOffUs < 0) {
-                // Negative profit means we gave MORE cash than settled? (Loss)
+                 // Loss: Settled (90) < Given (100).
+                 // Debits: OD 90.
+                 // Credits: Cash 100.
+                 // Difference: 10 (Debit needed). -> Expense/Loss.
                 entries.push({ account_id: revenueId, type: 'DEBIT', amount: Math.abs(profitOffUs), description: 'Service Loss' });
-                entries.push({ account_id: cashId, type: 'CREDIT', amount: Math.abs(profitOffUs), description: 'Excess Cash Given' });
             }
 
             groupDesc = `Kiosk Withdrawal (Off-us): ${cashGivenOffUs}`;
@@ -148,9 +176,8 @@ export const generateLedgerEntries = (
         case 'PHONEPAY_WITHDRAWAL':
             // Logic: Treat this as a split transaction: Principal Out (Expense) + Fee In (Revenue).
             // 1. Debit Bank Account with the Full Settlement Amount.
-            // 2. Credit Cash with the Full Settlement Amount.
-            // 3. Debit Cash with the Profit Amount.
-            // 4. Credit Revenue with the Profit Amount.
+            // 2. Credit Cash with the Actual Cash Given.
+            // 3. Credit Revenue with the Profit (or Debit if Loss).
             validateParams();
             const settledPP = Number(params.total_settled);
             const cashGivenPP = Number(params.amount);
@@ -158,15 +185,21 @@ export const generateLedgerEntries = (
 
             entries = [
                 { account_id: bankId, type: 'DEBIT', amount: settledPP, description: `Bank Settlement (In)` },
-                { account_id: cashId, type: 'CREDIT', amount: settledPP, description: 'Principal Cash Out' },
+                { account_id: cashId, type: 'CREDIT', amount: cashGivenPP, description: 'Cash Out to Customer' },
             ];
 
             if (profitPP > 0) {
-                entries.push({ account_id: cashId, type: 'DEBIT', amount: profitPP, description: 'Fee Collected' });
+                // Settled (100) > Given (90).
+                // Debit: Bank 100.
+                // Credit: Cash 90.
+                // Balance: 10 Credit (Revenue).
                 entries.push({ account_id: revenueId, type: 'CREDIT', amount: profitPP, description: 'Service Revenue' });
             } else if (profitPP < 0) {
+                 // Settled (90) < Given (100).
+                 // Debit: Bank 90.
+                 // Credit: Cash 100.
+                 // Balance: 10 Debit (Loss).
                 entries.push({ account_id: revenueId, type: 'DEBIT', amount: Math.abs(profitPP), description: 'Service Loss' });
-                entries.push({ account_id: cashId, type: 'CREDIT', amount: Math.abs(profitPP), description: 'Excess Cash Given' });
             }
 
             groupDesc = `PhonePe Withdrawal: ${cashGivenPP}`;

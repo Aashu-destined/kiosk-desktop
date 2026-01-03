@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Account, DailyRecord } from '../types/ipc';
+import { DailyRecord } from '../types/ipc';
+import { useData } from '../contexts/DataContext';
 
 interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: 'dashboard' | 'transactions' | 'accounts' | 'settings') => void;
-  accounts: Account[];
   onAddAccount: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accounts, onAddAccount }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount }) => {
+  const { accounts } = useData();
   // Reconciliation State
   const [recDate, setRecDate] = useState(new Date().toISOString().split('T')[0]);
   const [dailyRecord, setDailyRecord] = useState<DailyRecord | null>(null);
@@ -101,7 +102,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accounts, on
             accounts.map(acc => (
               <div key={acc.id} className="p-2 bg-app/50 rounded border border-border flex justify-between items-center group hover:border-accent/30 transition-colors">
                 <span className="text-sm text-primary group-hover:text-primary">{acc.name}</span>
-                <span className="text-sm font-mono font-bold text-accent">${acc.current_balance.toFixed(2)}</span>
+                <span className="text-sm font-mono font-bold text-accent">₹{acc.current_balance.toFixed(2)}</span>
               </div>
             ))
           )}
@@ -122,11 +123,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accounts, on
         <div className="space-y-1 text-xs text-muted mb-3">
           <div className="flex justify-between">
             <span>Opening:</span>
-            <span className="font-mono text-primary">${calcOpening.toFixed(2)}</span>
+            <span className="font-mono text-primary">₹{calcOpening.toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
             <span>Expected Closing:</span>
-            <span className="font-mono font-bold text-primary">${calcClosing.toFixed(2)}</span>
+            <span className="font-mono font-bold text-primary">₹{calcClosing.toFixed(2)}</span>
           </div>
         </div>
         
@@ -144,7 +145,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, accounts, on
 
         <div className={`flex justify-between text-sm font-bold mb-1 ${Math.abs(variance) < 0.01 ? 'text-green-500' : 'text-red-500'}`}>
           <span>Variance:</span>
-          <span>${variance.toFixed(2)}</span>
+          <span>₹{variance.toFixed(2)}</span>
         </div>
         
         <div className="text-xs text-muted mb-3 text-right">

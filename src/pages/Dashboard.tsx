@@ -1,23 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { DashboardStats } from '../types/ipc';
+import React from 'react';
+import { useData } from '../contexts/DataContext';
+import { normalizeChartData } from '../utils/chartUtils';
 
 const Dashboard: React.FC = () => {
-  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const { stats: dashboardStats, isLoading, error } = useData();
 
-  useEffect(() => {
-    loadDashboardStats();
-  }, []);
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 text-red-400">
+          <h3 className="text-lg font-bold mb-2">Error Loading Dashboard</h3>
+          <p className="font-mono text-sm">{error}</p>
+        </div>
+      </div>
+    );
+  }
 
-  const loadDashboardStats = async () => {
-    try {
-      const stats = await window.ipcRenderer.invoke('db:get-dashboard-stats');
-      setDashboardStats(stats);
-    } catch (err) {
-      console.error('Failed to load dashboard stats:', err);
-    }
-  };
-
-  if (!dashboardStats) {
+  if (isLoading || !dashboardStats) {
     return <div className="text-gray-500">Loading dashboard...</div>;
   }
 
@@ -66,23 +65,18 @@ const Dashboard: React.FC = () => {
             {dashboardStats.trendAnalysis.length === 0 ? (
                 <p className="w-full text-center text-gray-400 self-center">No trend data available</p>
             ) : (
-                dashboardStats.trendAnalysis.map((item, idx) => {
-                      // Simple normalization for bar height
-                      const maxProfit = Math.max(...dashboardStats.trendAnalysis.map(d => d.profit), 10);
-                      const heightPct = Math.max((item.profit / maxProfit) * 100, 5); // min 5% height
-                      return (
-                          <div key={idx} className="flex flex-col items-center flex-1 group relative">
-                              <div className="w-full bg-blue-100 rounded-t hover:bg-blue-200 transition-all relative" style={{ height: `${heightPct}%` }}>
-                                  <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded whitespace-nowrap z-10">
-                                    ₹{item.profit.toFixed(2)}
-                                  </div>
-                              </div>
-                              <div className="text-xs text-gray-500 mt-2 rotate-45 origin-left translate-x-2 md:rotate-0 md:translate-x-0 truncate w-full text-center">
-                                  {item.date.slice(5)}
-                              </div>
-                          </div>
-                      )
-                })
+                normalizeChartData(dashboardStats.trendAnalysis).map((item, idx) => (
+                    <div key={idx} className="flex flex-col items-center flex-1 group relative">
+                        <div className="w-full bg-blue-100 rounded-t hover:bg-blue-200 transition-all relative" style={{ height: `${item.heightPct}%` }}>
+                            <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded whitespace-nowrap z-10">
+                              ₹{item.profit.toFixed(2)}
+                            </div>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-2 rotate-45 origin-left translate-x-2 md:rotate-0 md:translate-x-0 truncate w-full text-center">
+                            {item.date.slice(5)}
+                        </div>
+                    </div>
+                ))
             )}
           </div>
         </div>

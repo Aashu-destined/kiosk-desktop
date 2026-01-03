@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react'
-import { Account } from './types/ipc'
+import { useState } from 'react'
+import { DataProvider } from './contexts/DataContext'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Transactions from './pages/Transactions'
@@ -8,41 +8,26 @@ import Settings from './pages/Settings'
 
 function App() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'transactions' | 'accounts' | 'settings'>('transactions')
-  const [accounts, setAccounts] = useState<Account[]>([])
-
-  useEffect(() => {
-    loadAccounts()
-  }, [])
-
-  const loadAccounts = async () => {
-    try {
-      const accs = await window.ipcRenderer.invoke('db:get-accounts')
-      setAccounts(accs)
-    } catch (err) {
-      console.error('Failed to load accounts:', err)
-    }
-  }
+  const [autoOpenAddAccount, setAutoOpenAddAccount] = useState(false)
 
   const handleAddAccount = async () => {
-    const name = prompt('Account Name:')
-    if (name) {
-      await window.ipcRenderer.invoke('db:add-account', { name, type: 'asset', initialBalance: 0 })
-      loadAccounts()
-    }
+    setActiveTab('accounts')
+    setAutoOpenAddAccount(true)
   }
 
   return (
-    <Layout
-      activeTab={activeTab}
-      setActiveTab={setActiveTab}
-      accounts={accounts}
-      onAddAccount={handleAddAccount}
-    >
-      {activeTab === 'dashboard' && <Dashboard />}
-      {activeTab === 'transactions' && <Transactions accounts={accounts} onTransactionAdded={loadAccounts} />}
-      {activeTab === 'accounts' && <Accounts />}
-      {activeTab === 'settings' && <Settings />}
-    </Layout>
+    <DataProvider>
+      <Layout
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onAddAccount={handleAddAccount}
+      >
+        {activeTab === 'dashboard' && <Dashboard />}
+        {activeTab === 'transactions' && <Transactions />}
+        {activeTab === 'accounts' && <Accounts autoOpenAdd={autoOpenAddAccount} onAutoOpenHandled={() => setAutoOpenAddAccount(false)} />}
+        {activeTab === 'settings' && <Settings />}
+      </Layout>
+    </DataProvider>
   )
 }
 
