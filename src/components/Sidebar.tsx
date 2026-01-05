@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DailyRecord } from '../types/ipc';
 import { useData } from '../contexts/DataContext';
+import { useToast } from '../contexts/ToastContext';
 
 interface SidebarProps {
   activeTab: string;
@@ -10,6 +11,7 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount }) => {
   const { accounts } = useData();
+  const { showToast } = useToast();
   // Reconciliation State
   const [recDate, setRecDate] = useState(new Date().toISOString().split('T')[0]);
   const [dailyRecord, setDailyRecord] = useState<DailyRecord | null>(null);
@@ -29,19 +31,21 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount
 
   const loadReconciliationData = async () => {
     try {
-      const data = await window.ipcRenderer.invoke('db:get-daily-record', { date: recDate });
+      const response = await window.ipcRenderer.invoke('db:get-daily-record', { date: recDate });
       
-      if (data) {
-        setCalcOpening(data.calculated.openingBalance);
-        setCalcClosing(data.calculated.closingBalance);
-        setDailyRecord(data.record);
-        if (data.record) {
-          setPhysicalCount(data.record.cash_physical_count.toString());
-          setReconciliationStatus(data.record.status);
+      if (response.success && response.data) {
+        setCalcOpening(response.data.calculated.openingBalance);
+        setCalcClosing(response.data.calculated.closingBalance);
+        setDailyRecord(response.data.record);
+        if (response.data.record) {
+          setPhysicalCount(response.data.record.cash_physical_count.toString());
+          setReconciliationStatus(response.data.record.status);
         } else {
           setPhysicalCount('');
           setReconciliationStatus('PENDING');
         }
+      } else {
+         console.error('Failed to load reconciliation data:', response.error);
       }
     } catch (err) {
       console.error('Failed to load reconciliation data:', err);
@@ -53,7 +57,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount
     const diff = pCount - calcClosing;
     
     try {
-      await window.ipcRenderer.invoke('db:save-daily-record', {
+      const result = await window.ipcRenderer.invoke('db:save-daily-record', {
         date: recDate,
         openingBalance: calcOpening,
         closingBalance: calcClosing,
@@ -62,11 +66,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount
         status: diff === 0 ? 'CLOSED' : 'OPEN',
         notes: diff !== 0 ? `Variance: ${diff}` : 'Balanced'
       });
-      alert('Reconciliation saved!');
-      loadReconciliationData();
+
+      if (result.success) {
+        showToast('Reconciliation saved!', 'success');
+        loadReconciliationData();
+      } else {
+        showToast(result.error?.message || 'Failed to save reconciliation.', 'error');
+      }
     } catch (err) {
       console.error('Failed to save reconciliation:', err);
-      alert('Failed to save reconciliation.');
+      showToast('Failed to save reconciliation.', 'error');
     }
   };
 
@@ -115,6 +124,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount
         <div className="mb-2">
           <input
             type="date"
+            aria-label="Reconciliation Date"
             value={recDate}
             onChange={(e) => setRecDate(e.target.value)}
             className="input-celestial text-xs"
@@ -132,8 +142,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount
         </div>
         
         <div className="mb-2">
-          <label className="block text-xs font-medium text-muted mb-1">Physical Cash Count</label>
+          <label htmlFor="physical-cash-count" className="block text-xs font-medium text-muted mb-1">Physical Cash Count</label>
           <input
+            id="physical-cash-count"
             type="number"
             step="0.01"
             value={physicalCount}

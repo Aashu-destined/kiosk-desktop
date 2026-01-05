@@ -54,3 +54,45 @@ BEGIN
     END
     WHERE id = NEW.account_id;
 END;
+
+-- Trigger to update account balances automatically on DELETE
+CREATE TRIGGER IF NOT EXISTS update_balance_after_delete
+AFTER DELETE ON transactions
+BEGIN
+    UPDATE accounts
+    SET current_balance = CASE
+        WHEN OLD.type = 'DEBIT' AND type IN ('ASSET', 'EXPENSE') THEN current_balance - OLD.amount
+        WHEN OLD.type = 'CREDIT' AND type IN ('ASSET', 'EXPENSE') THEN current_balance + OLD.amount
+        WHEN OLD.type = 'CREDIT' AND type IN ('LIABILITY', 'EQUITY', 'REVENUE') THEN current_balance - OLD.amount
+        WHEN OLD.type = 'DEBIT' AND type IN ('LIABILITY', 'EQUITY', 'REVENUE') THEN current_balance + OLD.amount
+        ELSE current_balance
+    END
+    WHERE id = OLD.account_id;
+END;
+
+-- Trigger to update account balances automatically on UPDATE
+CREATE TRIGGER IF NOT EXISTS update_balance_after_update
+AFTER UPDATE ON transactions
+BEGIN
+    -- Revert OLD transaction effect
+    UPDATE accounts
+    SET current_balance = CASE
+        WHEN OLD.type = 'DEBIT' AND type IN ('ASSET', 'EXPENSE') THEN current_balance - OLD.amount
+        WHEN OLD.type = 'CREDIT' AND type IN ('ASSET', 'EXPENSE') THEN current_balance + OLD.amount
+        WHEN OLD.type = 'CREDIT' AND type IN ('LIABILITY', 'EQUITY', 'REVENUE') THEN current_balance - OLD.amount
+        WHEN OLD.type = 'DEBIT' AND type IN ('LIABILITY', 'EQUITY', 'REVENUE') THEN current_balance + OLD.amount
+        ELSE current_balance
+    END
+    WHERE id = OLD.account_id;
+
+    -- Apply NEW transaction effect
+    UPDATE accounts
+    SET current_balance = CASE
+        WHEN NEW.type = 'DEBIT' AND type IN ('ASSET', 'EXPENSE') THEN current_balance + NEW.amount
+        WHEN NEW.type = 'CREDIT' AND type IN ('ASSET', 'EXPENSE') THEN current_balance - NEW.amount
+        WHEN NEW.type = 'CREDIT' AND type IN ('LIABILITY', 'EQUITY', 'REVENUE') THEN current_balance + NEW.amount
+        WHEN NEW.type = 'DEBIT' AND type IN ('LIABILITY', 'EQUITY', 'REVENUE') THEN current_balance - NEW.amount
+        ELSE current_balance
+    END
+    WHERE id = NEW.account_id;
+END;

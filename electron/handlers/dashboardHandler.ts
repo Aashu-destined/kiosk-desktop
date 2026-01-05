@@ -1,7 +1,8 @@
 import db from '../db/index';
+import { handleIpcRequest } from '../utils/ipcHelper';
 
 export const handleGetDashboardStats = async (_event: any) => {
-    try {
+    return handleIpcRequest(() => {
         // 1. Daily Profit (Sum of fees collected today)
         // Assuming fees are positive income.
         // We look for transactions where fee > 0 created today.
@@ -23,17 +24,6 @@ export const handleGetDashboardStats = async (_event: any) => {
         const totalProfit = profitResult?.totalProfit || 0;
 
         // 2. Current Cash Position (Balance of 'Cash' account)
-        // We look for an account named 'Cash' (case insensitive search might be safer, but schema says name is unique/text)
-        // Or we might want to sum all 'Asset' types if 'Cash' isn't specific enough.
-        // For MVP, let's look for 'Cash' specifically or 'Cash on Hand'.
-        // const cashStmt = db.prepare("SELECT current_balance FROM accounts WHERE name LIKE 'Cash%' OR type = 'Asset'");
-        // const cashAccounts = cashStmt.all() as { current_balance: number }[];
-        // Summing all assets might be too broad if we have 'Bank', but usually 'Cash' is what's in the drawer.
-        // Let's refine: Get specifically 'Cash' account if exists, else sum of all 'Asset' types?
-        // Let's just return the sum of all accounts with 'Cash' in name for now, or total assets.
-        // Re-reading requirements: "Current Cash Position (Get balance of 'Cash' account)"
-        // I'll grab the specific 'Cash' account if possible, or the first one found.
-        
         let cashBalance = 0;
         const specificCashStmt = db.prepare("SELECT current_balance FROM accounts WHERE name = 'Cash'");
         const specificCash = specificCashStmt.get() as { current_balance: number };
@@ -80,8 +70,5 @@ export const handleGetDashboardStats = async (_event: any) => {
             serviceAnalysis,
             trendAnalysis
         };
-    } catch (error) {
-        console.error('Failed to get dashboard stats:', error);
-        throw error;
-    }
+    });
 };

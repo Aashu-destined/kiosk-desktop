@@ -21,7 +21,7 @@ db.exec(schema);
 // Seed Default Accounts if they don't exist
 const seedAccounts = [
     { name: 'Cash', type: 'ASSET' },
-    { name: 'OD Account', type: 'LIABILITY' },
+    { name: 'OD Account', type: 'ASSET' },
     { name: 'Bank Account', type: 'ASSET' },
     { name: 'Revenue', type: 'REVENUE' },
     { name: 'Expenses', type: 'EXPENSE' }

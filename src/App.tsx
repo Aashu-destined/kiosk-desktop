@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { DataProvider } from './contexts/DataContext'
+import { ToastProvider } from './contexts/ToastContext'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Transactions from './pages/Transactions'
@@ -17,8 +18,9 @@ function App() {
 
   return (
     <DataProvider>
-      <Layout
-        activeTab={activeTab}
+      <ToastProvider>
+        <Layout
+          activeTab={activeTab}
         setActiveTab={setActiveTab}
         onAddAccount={handleAddAccount}
       >
@@ -26,7 +28,8 @@ function App() {
         {activeTab === 'transactions' && <Transactions />}
         {activeTab === 'accounts' && <Accounts autoOpenAdd={autoOpenAddAccount} onAutoOpenHandled={() => setAutoOpenAddAccount(false)} />}
         {activeTab === 'settings' && <Settings />}
-      </Layout>
+        </Layout>
+      </ToastProvider>
     </DataProvider>
   )
 }

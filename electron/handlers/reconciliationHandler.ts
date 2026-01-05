@@ -1,4 +1,5 @@
 import db from '../db/index';
+import { handleIpcRequest } from '../utils/ipcHelper';
 
 interface GetDailyRecordArgs {
     date: string;
@@ -16,7 +17,7 @@ interface SaveDailyRecordArgs {
 }
 
 export const handleGetDailyRecord = async (_event: any, { date, accountId }: GetDailyRecordArgs) => {
-    try {
+    return handleIpcRequest(() => {
         // 1. Identify Account
         let targetAccountId = accountId;
         if (!targetAccountId) {
@@ -42,13 +43,10 @@ export const handleGetDailyRecord = async (_event: any, { date, accountId }: Get
         // Formula: Balance_At_Time_T = Current_Balance - Sum(Transactions_After_Time_T)
 
         // Get Current Balance
-        const account = db.prepare('SELECT current_balance FROM accounts WHERE id = ?').get(targetAccountId) as { current_balance: number };
+        const account = db.prepare('SELECT current_balance, type FROM accounts WHERE id = ?').get(targetAccountId) as { current_balance: number, type: string };
         const currentBalance = account.current_balance;
 
         // Define Time Boundaries for the requested Date
-        // Note: Dates are stored as YYYY-MM-DD strings in DB, but we also have timestamp.
-        // Let's rely on the 'date' column string for simple filtering if possible, or timestamp for precision.
-        // Using timestamp is better for "After Time T".
         
         const startOfDay = new Date(date);
         startOfDay.setHours(0, 0, 0, 0);
@@ -59,51 +57,41 @@ export const handleGetDailyRecord = async (_event: any, { date, accountId }: Get
         const endTimestamp = Math.floor(endOfDay.getTime() / 1000);
 
         // Transactions that happened AFTER the *Start* of the target date (to back-calculate Opening)
-        // We sum net impact on the specific account.
-        
-        // Impact Logic:
-        // - Source = Account -> Negative Impact (Amount + Fee?)
-        // - Dest = Account -> Positive Impact (Amount)
         
         const txsAfterStart = db.prepare(`
-            SELECT t.*, a.type as account_type
-            FROM transactions t
-            JOIN accounts a ON t.account_id = a.id
-            WHERE t.timestamp >= ?
-            AND t.account_id = ?
+            SELECT * FROM transactions
+            WHERE timestamp >= ?
+            AND account_id = ?
         `).all(startTimestamp, targetAccountId) as any[];
 
-        let netChangeAfterStart = 0;
-        for (const tx of txsAfterStart) {
-            const isAssetOrExpense = ['ASSET', 'EXPENSE'].includes(tx.account_type);
-            if (tx.type === 'DEBIT') {
-                netChangeAfterStart += isAssetOrExpense ? tx.amount : -tx.amount;
-            } else {
-                netChangeAfterStart += isAssetOrExpense ? -tx.amount : tx.amount;
+        const calculateNetChange = (transactions: any[], accountType: string) => {
+            let change = 0;
+            const isAssetLike = ['ASSET', 'EXPENSE'].includes(accountType);
+            
+            for (const tx of transactions) {
+                 if (isAssetLike) {
+                     if (tx.type === 'DEBIT') change += tx.amount;
+                     if (tx.type === 'CREDIT') change -= tx.amount;
+                 } else {
+                     // Liability, Equity, Revenue
+                     if (tx.type === 'CREDIT') change += tx.amount;
+                     if (tx.type === 'DEBIT') change -= tx.amount;
+                 }
             }
-        }
+            return change;
+        };
 
+        const netChangeAfterStart = calculateNetChange(txsAfterStart, account.type);
         const calculatedOpening = currentBalance - netChangeAfterStart;
 
         // Transactions that happened AFTER the *End* of the target date (to back-calculate Closing)
         const txsAfterEnd = db.prepare(`
-            SELECT t.*, a.type as account_type
-            FROM transactions t
-            JOIN accounts a ON t.account_id = a.id
-            WHERE t.timestamp > ?
-            AND t.account_id = ?
+            SELECT * FROM transactions
+            WHERE timestamp > ?
+            AND account_id = ?
         `).all(endTimestamp, targetAccountId) as any[];
 
-        let netChangeAfterEnd = 0;
-        for (const tx of txsAfterEnd) {
-            const isAssetOrExpense = ['ASSET', 'EXPENSE'].includes(tx.account_type);
-            if (tx.type === 'DEBIT') {
-                netChangeAfterEnd += isAssetOrExpense ? tx.amount : -tx.amount;
-            } else {
-                netChangeAfterEnd += isAssetOrExpense ? -tx.amount : tx.amount;
-            }
-        }
-
+        const netChangeAfterEnd = calculateNetChange(txsAfterEnd, account.type);
         const calculatedClosing = currentBalance - netChangeAfterEnd;
 
         return {
@@ -114,17 +102,12 @@ export const handleGetDailyRecord = async (_event: any, { date, accountId }: Get
             },
             accountId: targetAccountId
         };
-
-    } catch (error) {
-        console.error('Failed to get daily record:', error);
-        throw error;
-    }
+    });
 };
 
 export const handleSaveDailyRecord = async (_event: any, args: SaveDailyRecordArgs) => {
-    const { date, openingBalance, closingBalance, physicalCount, difference, status, notes } = args;
-
-    try {
+    return handleIpcRequest(() => {
+        const { date, openingBalance, closingBalance, physicalCount, difference, status, notes } = args;
         const existing = db.prepare('SELECT id FROM daily_records WHERE date = ?').get(date);
 
         if (existing) {
@@ -140,9 +123,6 @@ export const handleSaveDailyRecord = async (_event: any, args: SaveDailyRecordAr
             `).run(date, openingBalance, closingBalance, physicalCount, difference, status, notes);
         }
 
-        return { success: true };
-    } catch (error) {
-        console.error('Failed to save daily record:', error);
-        throw error;
-    }
+        // Return void/undefined for success, wrapper will handle { success: true, data: undefined }
+    });
 };

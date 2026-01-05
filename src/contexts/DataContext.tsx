@@ -24,16 +24,30 @@ export const DataProvider: React.FC<DataProviderProps> = ({ children }) => {
   const [lastUpdated, setLastUpdated] = useState<number>(Date.now());
 
   const refreshData = useCallback(async () => {
-    setIsLoading(true);
+    // Only set loading to true if we don't have data yet
+    if (accounts.length === 0 && !stats) {
+      setIsLoading(true);
+    }
     setError(null);
     try {
-      const [fetchedAccounts, fetchedStats] = await Promise.all([
+      const [accountsRes, statsRes] = await Promise.all([
         window.ipcRenderer.invoke('db:get-accounts'),
         window.ipcRenderer.invoke('db:get-dashboard-stats')
       ]);
       
-      setAccounts(fetchedAccounts);
-      setStats(fetchedStats);
+      if (accountsRes.success && accountsRes.data) {
+        setAccounts(accountsRes.data);
+      } else if (accountsRes.error) {
+        throw new Error(accountsRes.error.message);
+      }
+
+      if (statsRes.success && statsRes.data) {
+        setStats(statsRes.data);
+      } else if (statsRes.error) {
+        // Stats failure shouldn't necessarily block app, but let's log it
+        console.error('Failed to load stats:', statsRes.error);
+      }
+
       setLastUpdated(Date.now());
     } catch (err: any) {
       console.error('Failed to refresh data:', err);

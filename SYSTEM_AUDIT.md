@@ -7,7 +7,7 @@ This audit identifies several critical and high-severity issues in the `kiosk-de
 
 ## 2. Audit Findings
 
-### [AUDIT-001] - Reconciliation Handler Critical Failure (Schema Mismatch)
+### [AUDIT-001] - Reconciliation Handler Critical Failure (Schema Mismatch) [RESOLVED]
 *   **Category:** Functional Logic / Data Integrity
 *   **Section:** 6. Data Integrity & Validation / 10. API & Integration Reliability
 *   **Location:** `electron/handlers/reconciliationHandler.ts` (Lines 71-72, 88-90)
@@ -38,7 +38,7 @@ This audit identifies several critical and high-severity issues in the `kiosk-de
 
 ---
 
-### [AUDIT-002] - Reversed Accounting Logic for Liability Accounts
+### [AUDIT-002] - Reversed Accounting Logic for Liability Accounts [RESOLVED]
 *   **Category:** Core Logic
 *   **Section:** 3. Functional Logic / 11. State Management
 *   **Location:** `src/engines/ScenarioLogic.ts` (Lines 89, 126, 164)
@@ -64,7 +64,7 @@ This audit identifies several critical and high-severity issues in the `kiosk-de
 
 ---
 
-### [AUDIT-003] - Data Persistence Gaps (Missing Triggers)
+### [AUDIT-003] - Data Persistence Gaps (Missing Triggers) [RESOLVED]
 *   **Category:** Data Integrity
 *   **Section:** 6. Data Integrity & Validation
 *   **Location:** `electron/db/schema.sql`
@@ -76,7 +76,7 @@ This audit identifies several critical and high-severity issues in the `kiosk-de
 
 ---
 
-### [AUDIT-004] - IPC Error Handling Weakness
+### [AUDIT-004] - IPC Error Handling Weakness [RESOLVED]
 *   **Category:** Error Handling
 *   **Section:** 7. Error Handling & Observability / 10. API Reliability
 *   **Location:** `electron/handlers/*.ts`
@@ -87,7 +87,7 @@ This audit identifies several critical and high-severity issues in the `kiosk-de
 
 ---
 
-### [AUDIT-005] - N+1 Query in Transaction History
+### [AUDIT-005] - N+1 Query in Transaction History [RESOLVED]
 *   **Category:** Maintainability & Technical Debt
 *   **Section:** 16. Maintainability
 *   **Location:** `electron/handlers/transactionHandler.ts` (Lines 85-88)
@@ -114,7 +114,7 @@ Phase 2 of the audit focuses on the React-based frontend. While the UI is visual
 
 ## 2. Audit Findings (Frontend/UX)
 
-### [AUDIT-006] - Visual Instability & Performance Degradation (Math.random in Render)
+### [AUDIT-006] - Visual Instability & Performance Degradation (Math.random in Render) [RESOLVED]
 *   **Category:** Performance / UI Reliability
 *   **Section:** 4. Performance & Optimization (Frontend) / 8. Performance & Load Behavior
 *   **Location:** `src/components/Starfield.tsx` (Lines 33-34)
@@ -140,7 +140,7 @@ Phase 2 of the audit focuses on the React-based frontend. While the UI is visual
 
 ---
 
-### [AUDIT-007] - Main-Thread Blocking Feedback (Synchronous Alerts)
+### [AUDIT-007] - Main-Thread Blocking Feedback (Synchronous Alerts) [RESOLVED]
 *   **Category:** User Experience (UX)
 *   **Section:** 2. User Experience (UX) / 17. User Journey
 *   **Location:** `src/components/Sidebar.tsx` (Lines 65, 69), `src/pages/Transactions.tsx` (Lines 49, 53)
@@ -156,7 +156,7 @@ Phase 2 of the audit focuses on the React-based frontend. While the UI is visual
 
 ---
 
-### [AUDIT-008] - Accessibility Non-Compliance (Missing Form Labels)
+### [AUDIT-008] - Accessibility Non-Compliance (Missing Form Labels) [RESOLVED]
 *   **Category:** Accessibility / Compliance
 *   **Section:** 14. Compliance & Standards (WCAG)
 *   **Location:** `src/components/ScenarioForms.tsx` (Line 25), `src/components/Sidebar.tsx` (Line 117, 137)
@@ -172,7 +172,7 @@ Phase 2 of the audit focuses on the React-based frontend. While the UI is visual
 
 ---
 
-### [AUDIT-009] - Visual Inconsistency (Theme Variable Bypass)
+### [AUDIT-009] - Visual Inconsistency (Theme Variable Bypass) [RESOLVED]
 *   **Category:** User Interface (UI)
 *   **Section:** 1. User Interface (UI)
 *   **Location:** `src/pages/Dashboard.tsx` (Line 70)
@@ -188,7 +188,7 @@ Phase 2 of the audit focuses on the React-based frontend. While the UI is visual
 
 ---
 
-### [AUDIT-010] - UX Friction: Global Loading State Flickering
+### [AUDIT-010] - UX Friction: Global Loading State Flickering [RESOLVED]
 *   **Category:** Performance / UX
 *   **Section:** 4. Performance & Optimization (Frontend)
 *   **Location:** `src/contexts/DataContext.tsx` (Line 27, 43)

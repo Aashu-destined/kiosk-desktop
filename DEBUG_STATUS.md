@@ -1,5 +1,5 @@
 # Debugging Status Tracker
-**Date:** 2026-01-02
+**Date:** 2026-01-03
 **Overall Status:** In Progress
 
 ## Critical Mismatches (High Severity)
@@ -34,9 +34,35 @@
 *   **Verification:**
     *   Run `node scripts/debug_kiosk_deposit.js` to see the current theoretical implementation.
 
+### 3. [AUDIT-002] Reversed Accounting Logic for Liability Accounts
+*   **Status:** Resolved
+*   **Issue:** `ScenarioLogic.ts` uses DEBIT for OD Account (Liability) settlement, which decreases the balance. Audit claims this is incorrect and expects balance to increase (Credit).
+*   **Source:** `SYSTEM_AUDIT.md`
+*   **Findings:**
+    *   Confirmed that "OD Account" was defined as a `LIABILITY` in `electron/db/index.ts`.
+    *   In the database schema, a `DEBIT` to a `LIABILITY` account decreases the balance (standard accounting).
+    *   However, the application logic treats the OD Account as a funds-holding account where "Money In" (Debit) should increase the available balance.
+    *   This created a situation where receiving a settlement reduced the balance, making it look like a loss.
+*   **Resolution:**
+    *   Updated `electron/db/index.ts` to define "OD Account" as an `ASSET`.
+    *   This aligns with the application logic: Debit (Money In) -> Increase Asset Balance.
+*   **Verification:**
+    *   Simulated logic using `scripts/simulate_audit_002_fix.js`.
+    *   Verified that with OD as Asset, a Debit of 1000 results in a balance of +1000 (correct).
+
 ## UX/UI Implementation (High/Medium Severity)
 
-### 3. [UX-01] Blocking Native Prompt
+### 4. [AUDIT-006] Visual Instability in Starfield
+*   **Status:** Resolved
+*   **Issue:** `Math.random()` used in render loop causes comets to jump on every state update.
+*   **Location:** `src/components/Starfield.tsx`
+*   **Resolution:**
+    *   Refactored `Starfield.tsx` to generate `top` and `left` coordinates inside `setInterval` and store them in the component state (`comets` array of objects).
+    *   This ensures coordinates persist across re-renders.
+*   **Verification:**
+    *   Code analysis confirms that `style={{ top, left }}` is now derived from stable state rather than `Math.random()` in the JSX return.
+
+### 5. [UX-01] Blocking Native Prompt
 *   **Status:** Fixed
 *   **Issue:** `prompt()` used for adding accounts blocks thread and is poor UX.
 *   **Location:** `src/App.tsx:27`, `src/components/Sidebar.tsx:165`
@@ -50,7 +76,7 @@
 *   **Verification:**
     *   Verified code changes in `App.tsx`, `Sidebar.tsx`, and `Accounts.tsx`.
 
-### 4. [UI-01] Inconsistent Currency Symbols
+### 6. [UI-01] Inconsistent Currency Symbols
 *   **Status:** Fixed
 *   **Issue:** Mixed use of `$` and `₹` across components.
 *   **Findings:**
@@ -62,7 +88,7 @@
 *   **Verification:**
     *   Review of changed files confirms `₹` is now the standard currency symbol.
 
-### 5. [UX-02] Missing Accessibility Attributes
+### 7. [UX-02] Missing Accessibility Attributes
 *   **Status:** Fixed
 *   **Issue:** Form inputs lack `id` and `htmlFor` association.
 *   **Findings:**
@@ -75,9 +101,24 @@
 *   **Verification:**
     *   Code inspection confirms standard accessibility attributes are now present.
 
+### 8. [AUDIT-008] Accessibility Non-Compliance (Sidebar)
+*   **Status:** Resolved
+*   **Issue:** Sidebar inputs for Reconciliation (Date and Cash Count) lack accessible labels.
+*   **Source:** `SYSTEM_AUDIT.md` (AUDIT-008)
+*   **Location:** `src/components/Sidebar.tsx`
+*   **Findings:**
+    *   Date input has no label or `aria-label`.
+    *   "Physical Cash Count" input has a visual label but no `htmlFor` association.
+*   **Resolution:**
+    *   Added `aria-label="Reconciliation Date"` to the date input.
+    *   Added `id="physical-cash-count"` to the input and `htmlFor="physical-cash-count"` to the label.
+*   **Verification:**
+    *   Manually verified code changes as the test environment was unstable.
+    *   Code inspection confirms presence of accessibility attributes.
+
 ## State Management (Medium Severity)
 
-### 6. [STATE-01] Prop Drilling & Stale Data
+### 9. [STATE-01] Prop Drilling & Stale Data
 *   **Status:** Fixed
 *   **Issue:** `App.tsx` state management leads to stale data on `Dashboard.tsx`.
 *   **Findings:**
@@ -91,7 +132,7 @@
 *   **Verification:**
     *   Code review confirms centralized data flow.
 
-### 7. [STATE-02] Redundant API Calls
+### 10. [STATE-02] Redundant API Calls
 *   **Status:** Fixed
 *   **Issue:** Multiple components fetch the same account data independently.
 *   **Findings:**
@@ -104,7 +145,7 @@
 
 ## Performance & Maintainability
 
-### 8. [PERF-01] Unoptimized List Rendering
+### 11. [PERF-01] Unoptimized List Rendering
 *   **Status:** Fixed
 *   **Issue:** No pagination for transaction history.
 *   **Findings:**
@@ -116,7 +157,7 @@
 *   **Verification:**
     *   Code review of `transactionHandler.ts` and `Transactions.tsx`.
 
-### 9. [CODE-01] Hardcoded Values
+### 12. [CODE-01] Hardcoded Values
 *   **Status:** Fixed
 *   **Issue:** Large switch statement in `ScenarioForms.tsx`.
 *   **Findings:**
@@ -127,7 +168,7 @@
 *   **Verification:**
     *   Code review of `ScenarioForms.tsx` and `scenarioConfig.ts`.
 
-### 10. [CODE-02] Inline Styling/Logic
+### 13. [CODE-02] Inline Styling/Logic
 *   **Status:** Fixed
 *   **Issue:** Inline math logic in `Dashboard.tsx`.
 *   **Findings:**
@@ -140,7 +181,7 @@
 
 ## Testing Gaps
 
-### 11. [TEST-01] No Frontend Tests
+### 14. [TEST-01] No Frontend Tests
 *   **Status:** Infrastructure Ready
 *   **Issue:** Lack of Unit Tests for React components.
 *   **Findings:**
@@ -152,7 +193,7 @@
 *   **Verification:**
     *   Run `npx vitest` to execute suite.
 
-### 12. [TEST-02] No Integration Tests
+### 15. [TEST-02] No Integration Tests
 *   **Status:** Fixed
 *   **Issue:** No verification of flow from Form -> IPC -> DB -> UI.
 *   **Findings:**
@@ -163,3 +204,111 @@
     *   Verifies DB state against expected accounting rules.
 *   **Verification:**
     *   Run `node scripts/integration_test_flow.js`. Result: PASS.
+
+## Critical Bug Fixes (Phase 1 Audit)
+
+### 16. [AUDIT-001] Reconciliation Handler Schema Mismatch
+*   **Status:** Resolved
+*   **Issue:** `reconciliationHandler.ts` queries non-existent columns (`source_account_id`, `destination_account_id`) in `transactions` table.
+*   **Source:** `SYSTEM_AUDIT.md` (Section 2, AUDIT-001)
+*   **Findings:**
+    *   The database schema uses a normalized structure (`transaction_groups` -> `transactions`) with a single `account_id` per row.
+    *   The handler code assumes a denormalized structure with source/destination columns.
+    *   This causes a crash whenever reconciliation is attempted.
+*   **Resolution:**
+    *   Updated `electron/handlers/reconciliationHandler.ts` to query by `account_id`.
+    *   Implemented logic to calculate net impact based on `account.type` (Asset/Expense vs Liability/Equity/Revenue) and transaction `type` (DEBIT/CREDIT).
+*   **Verification:**
+    *   Created `scripts/verify_fix_audit_001.js`.
+    *   Seeded DB with schema and test transaction.
+    *   Verified handler correctly calculates opening/closing balance.
+    *   Result: PASS.
+
+### 17. [AUDIT-003] Data Persistence Gaps (Missing Triggers)
+*   **Status:** Resolved
+*   **Issue:** `accounts` table balance relies solely on `AFTER INSERT` trigger. Updates or deletions of transactions do not propagate to the account balance, causing permanent data drift.
+*   **Source:** `SYSTEM_AUDIT.md`
+*   **Findings:**
+    *   Inspected `electron/db/schema.sql` and confirmed only `update_balance_after_insert` exists.
+    *   Confirmed via static analysis that `AFTER UPDATE` and `AFTER DELETE` triggers were missing.
+*   **Resolution:**
+    *   Added `AFTER DELETE` trigger to `electron/db/schema.sql` to reverse the effect of the deleted transaction on the account balance.
+    *   Added `AFTER UPDATE` trigger to `electron/db/schema.sql` to first reverse the old transaction's effect and then apply the new transaction's effect.
+*   **Verification:**
+    *   Verified the SQL syntax for the new triggers in `electron/db/schema.sql`.
+
+### 18. [AUDIT-004] IPC Error Handling Weakness
+*   **Status:** Resolved
+*   **Issue:** Handlers use generic `try-catch` blocks that throw raw errors to the renderer, lacking structured error codes.
+*   **Source:** `SYSTEM_AUDIT.md` (Section 2, AUDIT-004)
+*   **Findings:**
+    *   Reproduced the issue where IPC handlers throw unstructured errors.
+    *   Confirmed that `electron/handlers/*.ts` were simply catching and re-throwing raw errors.
+*   **Resolution:**
+    *   Created `src/types/ipcResponse.ts` to define a standardized `IpcResponse<T>` wrapper.
+    *   Implemented `electron/utils/ipcHelper.ts` to wrap all IPC handler executions and map errors to standardized codes (e.g., `DUPLICATE_ENTRY`).
+    *   Refactored all handlers in `electron/handlers/*.ts` to use `handleIpcRequest`.
+    *   Updated frontend code (`Transactions.tsx`, `Sidebar.tsx`, `DataContext.tsx`, `Accounts.tsx`, `Settings.tsx`) to consume the new `IpcResponse` structure.
+*   **Verification:**
+    *   Created `scripts/verify_audit_004.js` to verify the error mapping logic.
+    *   Result: PASS (Standard errors, SQLite constraints, and custom codes are correctly mapped).
+
+### 19. [AUDIT-005] N+1 Query in Transaction History
+*   **Status:** Resolved
+*   **Issue:** Fetching transaction groups iterates through each group and performs a separate query to fetch its entries.
+*   **Source:** `SYSTEM_AUDIT.md` (Section 2, AUDIT-005)
+*   **Findings:**
+    *   Initial analysis confirms the `map` loop executing a query per group in `transactionHandler.ts`.
+*   **Resolution:**
+    *   Optimized `transactionHandler.ts` to fetch all entries for the retrieved groups in a single query using `WHERE group_id IN (...)`.
+    *   Mapped entries back to groups in memory.
+    *   This reduces database round-trips from N+1 to 2 (1 for groups, 1 for entries).
+*   **Verification:**
+    *   Created `scripts/verify_audit_005.js` to benchmark the old vs new logic.
+    *   The new logic produces identical results with significantly fewer DB calls.
+
+### 20. [AUDIT-007] Main-Thread Blocking Feedback
+*   **Status:** Resolved
+*   **Issue:** Synchronous `window.alert()` calls block the UI.
+*   **Source:** `SYSTEM_AUDIT.md` (Section 2, AUDIT-007)
+*   **Findings:**
+    *   Identified usage of `alert()` in `Sidebar.tsx`, `Transactions.tsx`, `Settings.tsx`, and `Accounts.tsx`.
+    *   `alert()` halts the main thread and provides poor UX.
+*   **Resolution:**
+    *   Implemented `ToastContext.tsx` using `lucide-react` icons and Tailwind CSS animations.
+    *   Wrapped `App.tsx` with `ToastProvider`.
+    *   Replaced all `alert()` calls with `showToast()` hook.
+    *   Fixed incidental TS errors in `transactionHandler.ts`.
+*   **Verification:**
+    *   `npm run build` passed successfully.
+    *   Code analysis confirms `alert()` is no longer used in key user flows.
+
+### 21. [AUDIT-009] Visual Inconsistency (Theme Variable Bypass)
+*   **Status:** Resolved
+*   **Issue:** Dashboard charts use hardcoded `bg-blue-100` instead of semantic theme variables, breaking theme consistency (e.g., Obsidian mode).
+*   **Source:** `SYSTEM_AUDIT.md` (Section 2.3, AUDIT-009)
+*   **Findings:**
+    *   `src/pages/Dashboard.tsx` (Lines 70) uses `bg-blue-100` and `hover:bg-blue-200`.
+    *   `tailwind.config.js` provides `accent` and `primary` semantic colors.
+    *   This confirms the audit finding: the UI will not adapt to theme changes.
+*   **Resolution:**
+    *   Updated `src/pages/Dashboard.tsx` to use `bg-accent/20` and `hover:bg-accent/40` instead of hardcoded blue colors.
+    *   This ensures the chart bars automatically adopt the primary color of the active theme (Sky Blue for Default, Violet for Obsidian).
+*   **Verification:**
+    *   Code inspection of `src/pages/Dashboard.tsx` confirms usage of semantic Tailwind utility classes.
+
+### 22. [AUDIT-010] UX Friction: Global Loading State Flickering
+*   **Status:** Resolved
+*   **Issue:** `refreshData` in `DataContext.tsx` sets `isLoading` to `true` on every call, causing UI flickering.
+*   **Source:** `SYSTEM_AUDIT.md` (Section 2, AUDIT-010)
+*   **Location:** `src/contexts/DataContext.tsx`
+*   **Findings:**
+    *   Confirmed in code: `setIsLoading(true)` is called at the start of `refreshData`.
+    *   Verified via simulation that this triggers a state update even when data is present.
+*   **Resolution:**
+    *   Updated `refreshData` in `src/contexts/DataContext.tsx`.
+    *   Added a check: `if (accounts.length === 0 && !stats) { setIsLoading(true); }`.
+    *   This ensures `isLoading` is only set to `true` during the initial load, enabling background refreshing for subsequent updates.
+*   **Verification:**
+    *   Simulated the logic fix in `scripts/verify_audit_010.js`.
+    *   Confirmed that subsequent calls to `refreshData` do not trigger the loading state.

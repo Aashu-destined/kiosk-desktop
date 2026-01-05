@@ -1,9 +1,10 @@
 import { ipcMain } from 'electron';
 import db from '../db';
 import { TransactionGroupInput } from '../../src/types/ipc';
+import { handleIpcRequest } from '../utils/ipcHelper';
 
 ipcMain.handle('db:add-transaction-group', async (_: any, groupData: TransactionGroupInput) => {
-    try {
+    return handleIpcRequest(() => {
         const insertGroup = db.prepare(`
             INSERT INTO transaction_groups (scenario_type, date, customer_name, description, timestamp)
             VALUES (@scenario_type, @date, @customer_name, @description, @timestamp)
@@ -40,30 +41,27 @@ ipcMain.handle('db:add-transaction-group', async (_: any, groupData: Transaction
                 });
             }
 
-            return { success: true, groupId: Number(groupId) };
+            return { groupId: Number(groupId) };
         })();
 
         return result;
-    } catch (error) {
-        console.error('Failed to add transaction group:', error);
-        throw error;
-    }
+    });
 });
 
 ipcMain.handle('db:get-transaction-groups', async (_, { limit = 50, offset = 0, startDate, endDate } = {}) => {
-    try {
+    return handleIpcRequest(() => {
         let query = `
-            SELECT * FROM transaction_groups 
-            ORDER BY timestamp DESC, id DESC 
+            SELECT * FROM transaction_groups
+            ORDER BY timestamp DESC, id DESC
             LIMIT @limit OFFSET @offset
         `;
         
         // Simple date filtering can be added here if needed
         if (startDate && endDate) {
             query = `
-                SELECT * FROM transaction_groups 
+                SELECT * FROM transaction_groups
                 WHERE date BETWEEN @startDate AND @endDate
-                ORDER BY timestamp DESC, id DESC 
+                ORDER BY timestamp DESC, id DESC
                 LIMIT @limit OFFSET @offset
             `;
         }
@@ -78,18 +76,36 @@ ipcMain.handle('db:get-transaction-groups', async (_, { limit = 50, offset = 0, 
         const totalResult = db.prepare(countQuery).get({ startDate, endDate }) as { count: number };
         const total = totalResult ? totalResult.count : 0;
 
-        // Fetch entries for each group (N+1 query, but manageable for small limits or can use JOIN)
-        // For UI display, usually we just need the group description, but let's fetch entries for completeness
-        const getEntries = db.prepare('SELECT * FROM transactions WHERE group_id = ?');
+        // Optimization: Avoid N+1 query by fetching all entries for the retrieved groups in one go
+        const groupIds = groups.map((g: any) => g.id);
         
-        const groupsWithEntries = groups.map((group: any) => ({
-            ...group,
-            entries: getEntries.all(group.id)
-        }));
+        let groupsWithEntries = groups;
+
+        if (groupIds.length > 0) {
+            const placeholders = groupIds.map(() => '?').join(',');
+            const getAllEntries = db.prepare(`SELECT * FROM transactions WHERE group_id IN (${placeholders})`);
+            const allEntries = getAllEntries.all(groupIds);
+
+            // Group entries by group_id in memory
+            const entriesByGroup = allEntries.reduce((acc: Record<number, any[]>, entry: any) => {
+                if (!acc[entry.group_id]) {
+                    acc[entry.group_id] = [];
+                }
+                acc[entry.group_id].push(entry);
+                return acc;
+            }, {} as Record<number, any[]>);
+
+            groupsWithEntries = groups.map((group: any) => ({
+                ...group,
+                entries: entriesByGroup[group.id] || []
+            }));
+        } else {
+             groupsWithEntries = groups.map((group: any) => ({
+                ...group,
+                entries: []
+            }));
+        }
 
         return { groups: groupsWithEntries, total };
-    } catch (error) {
-        console.error('Failed to get transaction groups:', error);
-        throw error;
-    }
+    });
 });
