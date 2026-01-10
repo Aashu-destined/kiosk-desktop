@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTheme, ThemePreference } from '../contexts/ThemeContext';
-import { Sun, Moon, Sparkles, Monitor, Gem } from 'lucide-react';
+import { Sun, Moon, Sparkles, Monitor, Gem, Droplets } from 'lucide-react';
 
 const ThemeToggle: React.FC = () => {
   const { preference, setPreference } = useTheme();
@@ -10,6 +10,7 @@ const ThemeToggle: React.FC = () => {
     { value: 'dark', label: 'Dark', icon: <Moon className="w-4 h-4" /> },
     { value: 'celestial', label: 'Celestial', icon: <Sparkles className="w-4 h-4" /> },
     { value: 'obsidian', label: 'Flux', icon: <Gem className="w-4 h-4" /> },
+    { value: 'glass', label: 'Glass', icon: <Droplets className="w-4 h-4" /> },
     { value: 'system', label: 'System', icon: <Monitor className="w-4 h-4" /> },
   ];
 

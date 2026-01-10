@@ -52,6 +52,22 @@
     --flux-border-color: rgba(139, 92, 246, 0.2);
   }
 
+  /* Glass Theme Overrides (v2) */
+  [data-theme='glass'] {
+    /* Base Colors */
+    --bg-app: 240 248 255;
+    --bg-panel: 255 255 255;
+    
+    /* Typography: Dark Blue-Greys for maximum contrast */
+    --text-primary: 23 37 84; /* Blue-950 */
+    --text-muted: 71 85 105; /* Slate-600 */
+    
+    /* Borders & Accents */
+    --border-base: 255 255 255;
+    --accent-primary: 0 113 227; /* Apple System Blue */
+    --accent-glow: 56 189 248;
+  }
+
   body {
     @apply bg-app text-primary min-h-screen bg-fixed transition-colors duration-300;
   }
@@ -63,6 +79,19 @@
   [data-theme='obsidian'] body {
     background-color: rgb(var(--bg-app));
     background-image: var(--flux-gradient);
+  }
+
+  [data-theme='glass'] body {
+    background-color: #f0f9ff;
+    /* Premium Aurora Gradient */
+    background-image:
+        radial-gradient(at 0% 0%, rgba(167, 243, 208, 0.5) 0px, transparent 50%), /* Teal */
+        radial-gradient(at 100% 0%, rgba(165, 243, 252, 0.5) 0px, transparent 50%), /* Cyan */
+        radial-gradient(at 100% 100%, rgba(253, 164, 175, 0.5) 0px, transparent 50%), /* Rose */
+        radial-gradient(at 0% 100%, rgba(221, 214, 254, 0.5) 0px, transparent 50%); /* Violet */
+    background-attachment: fixed;
+    background-size: 150% 150%;
+    animation: aurora 15s ease infinite alternate;
   }
 
   /* Scrollbar Styling */
@@ -114,6 +143,25 @@
     pointer-events: none;
   }
 
+  /* Glass V2 Card */
+  [data-theme='glass'] .card-island {
+    @apply backdrop-blur-2xl transition-all duration-300;
+    
+    /* The Material Recipe */
+    background: rgba(255, 255, 255, 0.65);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    
+    /* Border: Crisp white edge */
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    
+    /* Shadows: Soft diffusion + Inner Highlight (Top/Left) */
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.05),
+      0 20px 40px -10px rgba(0, 0, 0, 0.05),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.5); /* Inner ring */
+  }
+
   /*
      Interactive Elements (Inputs, Selects)
   */
@@ -127,6 +175,31 @@
 
   [data-theme='obsidian'] .input-celestial {
     @apply bg-zinc-900/50 border-violet-500/30 focus:border-violet-500 focus:ring-violet-500/50;
+  }
+
+  /* Glass V2 Inputs */
+  [data-theme='glass'] .input-celestial {
+    @apply backdrop-blur-md transition-all duration-200;
+    
+    background: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: #0f172a; /* Slate 900 */
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+  }
+
+  [data-theme='glass'] .input-celestial:focus {
+    background: rgba(255, 255, 255, 0.85);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    outline: none;
+  }
+
+  /* Glass V2 Sidebar Override */
+  [data-theme='glass'] aside {
+    background: rgba(255, 255, 255, 0.3) !important;
+    backdrop-filter: blur(30px) saturate(200%) !important;
+    -webkit-backdrop-filter: blur(30px) saturate(200%) !important;
+    border-right: 1px solid rgba(255, 255, 255, 0.4);
   }
 }
 
@@ -174,6 +247,11 @@
     transform: translateX(-300px) translateY(300px) rotate(-45deg);
     opacity: 0;
   }
+}
+
+@keyframes aurora {
+  0% { background-position: 0% 0%; }
+  100% { background-position: 100% 100%; }
 }
 
 .animate-pulse-slow {
