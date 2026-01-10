@@ -66,18 +66,20 @@ export const handleGetDailyRecord = async (_event: any, { date, accountId }: Get
         // - Dest = Account -> Positive Impact (Amount)
         
         const txsAfterStart = db.prepare(`
-            SELECT * FROM transactions 
-            WHERE timestamp >= ? 
-            AND (source_account_id = ? OR destination_account_id = ?)
-        `).all(startTimestamp, targetAccountId, targetAccountId) as any[];
+            SELECT t.*, a.type as account_type
+            FROM transactions t
+            JOIN accounts a ON t.account_id = a.id
+            WHERE t.timestamp >= ?
+            AND t.account_id = ?
+        `).all(startTimestamp, targetAccountId) as any[];
 
         let netChangeAfterStart = 0;
         for (const tx of txsAfterStart) {
-            if (tx.source_account_id === targetAccountId) {
-                netChangeAfterStart -= (tx.amount + tx.fee); 
-            }
-            if (tx.destination_account_id === targetAccountId) {
-                netChangeAfterStart += tx.amount;
+            const isAssetOrExpense = ['ASSET', 'EXPENSE'].includes(tx.account_type);
+            if (tx.type === 'DEBIT') {
+                netChangeAfterStart += isAssetOrExpense ? tx.amount : -tx.amount;
+            } else {
+                netChangeAfterStart += isAssetOrExpense ? -tx.amount : tx.amount;
             }
         }
 
@@ -85,18 +87,20 @@ export const handleGetDailyRecord = async (_event: any, { date, accountId }: Get
 
         // Transactions that happened AFTER the *End* of the target date (to back-calculate Closing)
         const txsAfterEnd = db.prepare(`
-            SELECT * FROM transactions 
-            WHERE timestamp > ? 
-            AND (source_account_id = ? OR destination_account_id = ?)
-        `).all(endTimestamp, targetAccountId, targetAccountId) as any[];
+            SELECT t.*, a.type as account_type
+            FROM transactions t
+            JOIN accounts a ON t.account_id = a.id
+            WHERE t.timestamp > ?
+            AND t.account_id = ?
+        `).all(endTimestamp, targetAccountId) as any[];
 
         let netChangeAfterEnd = 0;
         for (const tx of txsAfterEnd) {
-            if (tx.source_account_id === targetAccountId) {
-                netChangeAfterEnd -= (tx.amount + tx.fee);
-            }
-            if (tx.destination_account_id === targetAccountId) {
-                netChangeAfterEnd += tx.amount;
+            const isAssetOrExpense = ['ASSET', 'EXPENSE'].includes(tx.account_type);
+            if (tx.type === 'DEBIT') {
+                netChangeAfterEnd += isAssetOrExpense ? tx.amount : -tx.amount;
+            } else {
+                netChangeAfterEnd += isAssetOrExpense ? -tx.amount : tx.amount;
             }
         }
 
