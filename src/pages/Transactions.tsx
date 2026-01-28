@@ -108,7 +108,12 @@ const Transactions: React.FC = () => {
                     <td className="py-3 px-4 text-sm text-slate-200">{group.description}</td>
                     <td className="py-3 px-4 text-sm text-slate-400">{group.customer_name || '-'}</td>
                     <td className="py-3 px-4 text-sm text-right">
-                       <button className="text-comet-400 text-xs hover:text-comet-300 hover:underline">View Ledger</button>
+                       <button
+                         className="text-comet-400 text-xs hover:text-comet-300 hover:underline"
+                         aria-label={`View ledger for transaction on ${group.date}`}
+                       >
+                         View Ledger
+                       </button>
                     </td>
                   </tr>
                   {/* Optional: Expand to show ledger entries? For now, keep it simple. */}
@@ -131,6 +136,7 @@ const Transactions: React.FC = () => {
             disabled={currentPage === 1}
             onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
             className="px-4 py-2 text-sm bg-celestial-deep/50 text-slate-300 rounded hover:bg-celestial-deep disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            aria-label="Previous Page"
           >
             Previous
           </button>
@@ -141,6 +147,7 @@ const Transactions: React.FC = () => {
             disabled={currentPage >= Math.ceil(totalCount / LIMIT)}
             onClick={() => setCurrentPage(prev => prev + 1)}
             className="px-4 py-2 text-sm bg-celestial-deep/50 text-slate-300 rounded hover:bg-celestial-deep disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            aria-label="Next Page"
           >
             Next
           </button>

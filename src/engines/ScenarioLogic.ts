@@ -22,20 +22,31 @@ export interface ScenarioParams {
     description?: string;
 }
 
-const findAccount = (accounts: Account[], type: string): number => {
-    // Exact match first, then by type
-    const account = accounts.find(a => a.name === type) || accounts.find(a => a.type === type);
-    if (!account) throw new Error(`Account ${type} not found`);
+const findAccount = (accounts: Account[], identifier: string): number => {
+    // 1. Try to match by slug (robust, system-defined)
+    let account = accounts.find(a => a.slug === identifier);
+    
+    // 2. Fallback: Match by name (legacy support)
+    if (!account) {
+        account = accounts.find(a => a.name === identifier);
+    }
+    
+    // 3. Fallback: Match by type (least specific)
+    if (!account) {
+        account = accounts.find(a => a.type === identifier);
+    }
+
+    if (!account) throw new Error(`Account ${identifier} not found`);
     return account.id;
 };
 
-// Hardcoded Account Type Mappings
+// Account Slugs (Immutable System Identifiers)
 const ACC = {
-    CASH: 'Cash',
-    OD: 'OD Account',
-    BANK: 'Bank Account',
-    REVENUE: 'Revenue',
-    EXPENSE: 'Expenses'
+    CASH: 'cash',
+    OD: 'od_account',
+    BANK: 'bank_account',
+    REVENUE: 'revenue',
+    EXPENSE: 'expenses'
 };
 
 /*

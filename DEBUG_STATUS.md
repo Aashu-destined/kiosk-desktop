@@ -205,6 +205,24 @@
 *   **Verification:**
     *   Run `node scripts/integration_test_flow.js`. Result: PASS.
 
+### 11. [AUDIT-011] Critical Logic Fragility (Account Renaming)
+*   **Status:** Resolved
+*   **Issue:** Core logic relies on hardcoded account names ("Cash", "OD Account"). Renaming these in the UI breaks transaction generation.
+*   **Source:** `SYSTEM_AUDIT.md` (AUDIT-011)
+*   **Investigation:**
+    *   `ScenarioLogic.ts` uses `findAccount` which searches by `name`.
+    *   `Accounts.tsx` allows renaming of any account.
+*   **Resolution:**
+    *   Added `slug` column to `accounts` table in `electron/db/schema.sql` and `electron/db/index.ts`.
+    *   Implemented database migration to backfill slugs for existing accounts.
+    *   Updated `src/engines/ScenarioLogic.ts` to prioritize looking up accounts by `slug` (e.g., 'cash', 'od_account').
+    *   Updated `findAccount` to fallback to name/type for backward compatibility.
+    *   Users can now safely rename system accounts without breaking core logic.
+*   **Verification:**
+    *   Created `scripts/verify_fix_audit_011_mock.js`.
+    *   Simulated renaming 'Cash' to 'My Register 1'.
+    *   Confirmed logic still finds the account via the 'cash' slug.
+
 ## Critical Bug Fixes (Phase 1 Audit)
 
 ### 16. [AUDIT-001] Reconciliation Handler Schema Mismatch
@@ -312,3 +330,60 @@
 *   **Verification:**
     *   Simulated the logic fix in `scripts/verify_audit_010.js`.
     *   Confirmed that subsequent calls to `refreshData` do not trigger the loading state.
+
+### 23. [AUDIT-012] Destructive State Loss on Tab Switch
+*   **Status:** Resolved
+*   **Issue:** Switching tabs causes components to unmount, losing local state (e.g., half-filled forms).
+*   **Source:** `SYSTEM_AUDIT.md` (Section 2, AUDIT-012)
+*   **Location:** `src/App.tsx`
+*   **Analysis:**
+    *   `src/App.tsx` used conditional rendering (`{activeTab === 'transactions' && <Transactions />}`).
+    *   This caused React to unmount the component when the tab was switched, destroying its local state.
+*   **Resolution:**
+    *   Refactored `src/App.tsx` to use CSS-based visibility toggling (`display: block/none`).
+    *   All main page components (`Dashboard`, `Transactions`, `Accounts`, `Settings`) are now rendered once and kept in the DOM.
+    *   This preserves their internal state (scroll position, form data) when navigating between tabs.
+*   **Verification:**
+    *   Verified with debug logs that `Transactions` component no longer unmounts when switching tabs.
+    *   User confirmed that form data persists after navigating away and back.
+
+### 24. [AUDIT-013] Extensive Theming Violations
+*   **Status:** Resolved
+*   **Issue:** Hardcoded color values (hex, rgb) or Tailwind utility classes bypass the CSS variable theme system.
+
+### 25. [AUDIT-014] Non-Responsive Layout (Fixed Sidebar)
+*   **Status:** Resolved
+*   **Issue:** Sidebar has a fixed width (`w-80`), taking up too much space on smaller screens.
+*   **Source:** `SYSTEM_AUDIT.md` (AUDIT-014)
+*   **Resolution:**
+    *   Implemented collapsible functionality in `src/components/Sidebar.tsx`.
+    *   Added a toggle button to switch between full width (`w-80`) and icon-only mode (`w-20`).
+    *   Optimized content visibility: Labels and forms are hidden in collapsed mode, while icons and status indicators remain visible.
+    *   Added tooltips (via `title` attribute) for better UX in collapsed mode.
+*   **Verification:**
+    *   Manual verification of code logic ensures state toggles width classes correctly.
+*   **Source:** `SYSTEM_AUDIT.md` (AUDIT-013)
+*   **Location:** `src/pages/Settings.tsx`, `src/pages/Accounts.tsx`, `src/pages/Dashboard.tsx`, `src/components/ThemeToggle.tsx`, `src/contexts/ToastContext.tsx`, `src/components/Sidebar.tsx`.
+*   **Resolution:**
+    *   Defined new semantic colors `success` and `destructive` in `src/index.css` and `tailwind.config.js`.
+    *   Replaced hardcoded `bg-blue-600`, `text-green-600`, `text-red-500` etc. with `bg-accent`, `text-success`, `text-destructive` across all identified files.
+    *   Updated `ThemeToggle.tsx` to use semantic borders and backgrounds.
+    *   Standardized alert and toast colors to use semantic variables.
+*   **Verification:**
+    *   `npm run build` passed successfully.
+    *   Code review confirms usage of semantic tokens (e.g., `text-success`, `bg-accent`) instead of raw colors.
+
+### 26. [AUDIT-015] Accessibility Gaps (Icon-Only Buttons)
+*   **Status:** Resolved
+*   **Issue:** Icon-only buttons lack `aria-label`, making them inaccessible to screen readers.
+*   **Source:** `SYSTEM_AUDIT.md` (AUDIT-015)
+*   **Target Files:** `Accounts.tsx`, `Settings.tsx`, `ThemeToggle.tsx`, `Sidebar.tsx`, `Transactions.tsx`, `ScenarioSelector.tsx`.
+*   **Resolution:**
+    *   Added `aria-label` attributes to icon-only buttons in `Accounts.tsx` (Edit, Save, Cancel).
+    *   Added `aria-label` attributes to `Settings.tsx` (Remove Transaction Type).
+    *   Added `aria-label` to `ThemeToggle.tsx` buttons.
+    *   Added `aria-label` to `Sidebar.tsx` navigation, collapse, and add account buttons.
+    *   Added `aria-label` to `Transactions.tsx` (pagination, view ledger) and `ScenarioSelector.tsx`.
+*   **Verification:**
+    *   `npm run build` passed successfully.
+    *   Code inspection confirms `aria-label` presence on interactive elements.

@@ -54,6 +54,7 @@ export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({ onSelect, se
         <button
           key={s.id}
           onClick={() => onSelect(s.id)}
+          aria-label={`Select scenario: ${s.label}`}
           className={clsx(
             "flex flex-col items-center justify-center p-4 rounded-2xl transition-all duration-200 shadow-lg border backdrop-blur-sm",
             s.color,

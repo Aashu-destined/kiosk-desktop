@@ -53,20 +53,20 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
             className={`
               pointer-events-auto
               flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg backdrop-blur-md border transition-all duration-300 animate-in slide-in-from-right-full fade-in
-              ${toast.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-100' : ''}
-              ${toast.type === 'error' ? 'bg-red-500/10 border-red-500/20 text-red-100' : ''}
-              ${toast.type === 'info' ? 'bg-blue-500/10 border-blue-500/20 text-blue-100' : ''}
+              ${toast.type === 'success' ? 'bg-success/10 border-success/20 text-success' : ''}
+              ${toast.type === 'error' ? 'bg-destructive/10 border-destructive/20 text-destructive' : ''}
+              ${toast.type === 'info' ? 'bg-accent/10 border-accent/20 text-accent' : ''}
             `}
           >
-            {toast.type === 'success' && <CheckCircle size={18} className="text-green-400" />}
-            {toast.type === 'error' && <AlertCircle size={18} className="text-red-400" />}
-            {toast.type === 'info' && <Info size={18} className="text-blue-400" />}
+            {toast.type === 'success' && <CheckCircle size={18} className="text-success" />}
+            {toast.type === 'error' && <AlertCircle size={18} className="text-destructive" />}
+            {toast.type === 'info' && <Info size={18} className="text-accent" />}
             
             <span className="text-sm font-medium">{toast.message}</span>
             
             <button
               onClick={() => removeToast(toast.id)}
-              className="ml-2 p-1 hover:bg-white/10 rounded-full transition-colors"
+              className="ml-2 p-1 hover:bg-black/5 dark:hover:bg-white/10 rounded-full transition-colors"
             >
               <X size={14} className="opacity-70" />
             </button>

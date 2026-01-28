@@ -8,7 +8,7 @@ const Dashboard: React.FC = () => {
   if (error) {
     return (
       <div className="p-6">
-        <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 text-red-400">
+        <div className="bg-destructive/10 border border-destructive/50 rounded-lg p-4 text-destructive">
           <h3 className="text-lg font-bold mb-2">Error Loading Dashboard</h3>
           <p className="font-mono text-sm">{error}</p>
         </div>
@@ -17,7 +17,7 @@ const Dashboard: React.FC = () => {
   }
 
   if (isLoading || !dashboardStats) {
-    return <div className="text-gray-500">Loading dashboard...</div>;
+    return <div className="text-muted">Loading dashboard...</div>;
   }
 
   return (
@@ -45,7 +45,7 @@ const Dashboard: React.FC = () => {
           {dashboardStats.dailyOverview.alerts.length > 0 ? (
             <div className="space-y-1 mt-2">
               {dashboardStats.dailyOverview.alerts.map((alert, i) => (
-                <div key={i} className="text-sm text-red-500 font-medium">
+                <div key={i} className="text-sm text-destructive font-medium">
                   {alert.name}: ₹{alert.current_balance.toFixed(2)}
                 </div>
               ))}
@@ -63,16 +63,16 @@ const Dashboard: React.FC = () => {
           <h3 className="font-bold text-primary mb-4">7-Day Profit Trend</h3>
           <div className="h-64 flex items-end justify-between space-x-2">
             {dashboardStats.trendAnalysis.length === 0 ? (
-                <p className="w-full text-center text-gray-400 self-center">No trend data available</p>
+                <p className="w-full text-center text-muted self-center">No trend data available</p>
             ) : (
                 normalizeChartData(dashboardStats.trendAnalysis).map((item, idx) => (
                     <div key={idx} className="flex flex-col items-center flex-1 group relative">
                         <div className="w-full bg-accent/20 rounded-t hover:bg-accent/40 transition-all relative" style={{ height: `${item.heightPct}%` }}>
-                            <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded whitespace-nowrap z-10">
+                            <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-primary text-app text-xs py-1 px-2 rounded whitespace-nowrap z-10 border border-border">
                               ₹{item.profit.toFixed(2)}
                             </div>
                         </div>
-                        <div className="text-xs text-gray-500 mt-2 rotate-45 origin-left translate-x-2 md:rotate-0 md:translate-x-0 truncate w-full text-center">
+                        <div className="text-xs text-muted mt-2 rotate-45 origin-left translate-x-2 md:rotate-0 md:translate-x-0 truncate w-full text-center">
                             {item.date.slice(5)}
                         </div>
                     </div>

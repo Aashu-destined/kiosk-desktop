@@ -24,10 +24,18 @@ function App() {
         setActiveTab={setActiveTab}
         onAddAccount={handleAddAccount}
       >
-        {activeTab === 'dashboard' && <Dashboard />}
-        {activeTab === 'transactions' && <Transactions />}
-        {activeTab === 'accounts' && <Accounts autoOpenAdd={autoOpenAddAccount} onAutoOpenHandled={() => setAutoOpenAddAccount(false)} />}
-        {activeTab === 'settings' && <Settings />}
+        <div className={activeTab === 'dashboard' ? 'block' : 'hidden'}>
+          <Dashboard />
+        </div>
+        <div className={activeTab === 'transactions' ? 'block' : 'hidden'}>
+          <Transactions />
+        </div>
+        <div className={activeTab === 'accounts' ? 'block' : 'hidden'}>
+          <Accounts autoOpenAdd={autoOpenAddAccount} onAutoOpenHandled={() => setAutoOpenAddAccount(false)} />
+        </div>
+        <div className={activeTab === 'settings' ? 'block' : 'hidden'}>
+          <Settings />
+        </div>
         </Layout>
       </ToastProvider>
     </DataProvider>

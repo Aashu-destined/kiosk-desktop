@@ -13,6 +13,8 @@ module.exports = {
         muted: 'rgb(var(--text-muted) / <alpha-value>)',
         border: 'rgb(var(--border-base) / <alpha-value>)',
         accent: 'rgb(var(--accent-primary) / <alpha-value>)',
+        success: 'rgb(var(--status-success) / <alpha-value>)',
+        destructive: 'rgb(var(--status-destructive) / <alpha-value>)',
         
         // Retaining specific palettes for specific needs, but encouraging semantic use
         celestial: {

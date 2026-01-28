@@ -15,18 +15,19 @@ const ThemeToggle: React.FC = () => {
   ];
 
   return (
-    <div className="flex bg-slate-200/50 dark:bg-slate-800/50 p-1 rounded-lg">
+    <div className="flex bg-app p-1 rounded-lg border border-border">
       {options.map((option) => (
         <button
           key={option.value}
           onClick={() => setPreference(option.value)}
           className={`
             flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all duration-200
-            ${preference === option.value 
-              ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' 
-              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-black/5 dark:hover:bg-white/5'}
+            ${preference === option.value
+              ? 'bg-panel text-primary shadow-sm border border-border'
+              : 'text-muted hover:text-primary hover:bg-app/50'}
           `}
           title={option.label}
+          aria-label={`Switch to ${option.label} theme`}
         >
           {option.icon}
           <span className="hidden sm:inline">{option.label}</span>

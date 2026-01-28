@@ -96,7 +96,7 @@ const Settings: React.FC = () => {
         {isDirty && (
           <button
             onClick={saveSettings}
-            className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            className="flex items-center px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80"
           >
             <Save size={20} className="mr-2" />
             Save Changes
@@ -141,6 +141,7 @@ const Settings: React.FC = () => {
                 onClick={() => removeTransactionType(type.id)}
                 className="text-red-500 hover:text-red-700 p-1"
                 title="Remove Type"
+                aria-label={`Remove ${type.label} Type`}
               >
                 <Trash2 size={18} />
               </button>

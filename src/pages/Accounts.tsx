@@ -90,7 +90,7 @@ const Accounts: React.FC<AccountsProps> = ({ autoOpenAdd, onAutoOpenHandled }) =
         <h1 className="text-2xl font-bold">Accounts Management</h1>
         <button
           onClick={() => setIsAdding(true)}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          className="flex items-center px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80"
         >
           <Plus size={20} className="mr-2" />
           Add Account
@@ -98,13 +98,13 @@ const Accounts: React.FC<AccountsProps> = ({ autoOpenAdd, onAutoOpenHandled }) =
       </div>
 
       {isAdding && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-bold mb-4">Add New Account</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-panel rounded-lg p-6 w-full max-w-md border border-border shadow-xl">
+            <h2 className="text-xl font-bold mb-4 text-primary">Add New Account</h2>
             <form onSubmit={handleAddAccount}>
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="account-name" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="account-name" className="block text-sm font-medium text-muted mb-1">
                     Account Name
                   </label>
                   <input
@@ -117,12 +117,12 @@ const Accounts: React.FC<AccountsProps> = ({ autoOpenAdd, onAutoOpenHandled }) =
                   />
                 </div>
                 <div>
-                  <label htmlFor="account-type" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="account-type" className="block text-sm font-medium text-muted mb-1">
                     Type
                   </label>
                   <select
                     id="account-type"
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border border-border rounded bg-app text-primary"
                     value={newAccountType}
                     onChange={(e) => setNewAccountType(e.target.value)}
                   >
@@ -132,7 +132,7 @@ const Accounts: React.FC<AccountsProps> = ({ autoOpenAdd, onAutoOpenHandled }) =
                   </select>
                 </div>
                 <div>
-                  <label htmlFor="account-balance" className="block text-sm font-medium text-gray-700 mb-1">
+                  <label htmlFor="account-balance" className="block text-sm font-medium text-muted mb-1">
                     Initial Balance
                   </label>
                   <input
@@ -140,7 +140,7 @@ const Accounts: React.FC<AccountsProps> = ({ autoOpenAdd, onAutoOpenHandled }) =
                     type="number"
                     step="0.01"
                     required
-                    className="w-full p-2 border rounded"
+                    className="w-full p-2 border border-border rounded bg-app text-primary"
                     value={newAccountBalance}
                     onChange={(e) => setNewAccountBalance(Number(e.target.value))}
                   />
@@ -150,13 +150,13 @@ const Accounts: React.FC<AccountsProps> = ({ autoOpenAdd, onAutoOpenHandled }) =
                 <button
                   type="button"
                   onClick={() => setIsAdding(false)}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  className="px-4 py-2 text-muted hover:text-primary transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="px-4 py-2 bg-accent text-white rounded hover:bg-accent/80 transition-colors"
                 >
                   Create Account
                 </button>
@@ -168,48 +168,51 @@ const Accounts: React.FC<AccountsProps> = ({ autoOpenAdd, onAutoOpenHandled }) =
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {accounts.map((account) => (
-          <div key={account.id} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+          <div key={account.id} className="bg-panel p-6 rounded-lg shadow-sm border border-border">
             <div className="flex justify-between items-start mb-4">
               <div className="flex-1">
                 {editingId === account.id ? (
                   <div className="flex items-center space-x-2">
                     <input
                       type="text"
-                      className="p-1 border rounded w-full"
+                      className="p-1 border border-border rounded w-full bg-app text-primary"
                       value={editName}
                       onChange={(e) => setEditName(e.target.value)}
                       autoFocus
                     />
                     <button
                       onClick={() => saveEditing(account.id)}
-                      className="text-green-600 hover:text-green-800"
+                      className="text-success hover:text-success/80"
+                      aria-label="Save Account Name"
                     >
                       <Check size={18} />
                     </button>
                     <button
                       onClick={cancelEditing}
-                      className="text-red-600 hover:text-red-800"
+                      className="text-destructive hover:text-destructive/80"
+                      aria-label="Cancel Editing"
                     >
                       <X size={18} />
                     </button>
                   </div>
                 ) : (
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-900">{account.name}</h3>
+                    <h3 className="text-lg font-semibold text-primary">{account.name}</h3>
                     <button
                       onClick={() => startEditing(account)}
-                      className="text-gray-400 hover:text-blue-600"
+                      className="text-muted hover:text-accent transition-colors"
+                      aria-label={`Edit ${account.name}`}
                     >
                       <Edit2 size={16} />
                     </button>
                   </div>
                 )}
-                <p className="text-sm text-gray-500 capitalize">{account.type.replace('_', ' ')}</p>
+                <p className="text-sm text-muted capitalize">{account.type.replace('_', ' ')}</p>
               </div>
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-sm text-gray-500">Current Balance</p>
-              <p className={`text-2xl font-bold ${account.current_balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-sm text-muted">Current Balance</p>
+              <p className={`text-2xl font-bold ${account.current_balance >= 0 ? 'text-success' : 'text-destructive'}`}>
                 ₹{account.current_balance.toFixed(2)}
               </p>
             </div>

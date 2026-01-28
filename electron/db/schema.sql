@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS accounts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    slug TEXT UNIQUE, -- System identifier (e.g., 'cash', 'od_account')
     name TEXT NOT NULL UNIQUE,
     type TEXT NOT NULL, -- 'ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'
     current_balance REAL NOT NULL DEFAULT 0.0

@@ -4,6 +4,7 @@ export * from './ipcResponse';
 
 export interface Account {
   id: number;
+  slug?: string;
   name: string;
   type: string;
   current_balance: number;

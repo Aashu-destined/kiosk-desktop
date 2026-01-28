@@ -1,107 +1,175 @@
 # SYSTEM AUDIT - Phase 1: Backend, Data Layer, and Core Logic
 
 ## 1. Executive Summary
-This audit identifies several critical and high-severity issues in the `kiosk-desktop` backend and core logic. The most significant finding is a complete functional failure in the reconciliation logic due to schema mismatches, followed by reversed accounting entries for Liability accounts (OD) which will result in incorrect financial reporting.
+This audit focuses on the backend integrity, database reliability, and core business logic of the `kiosk-desktop` application. While basic accounting logic appears to be directionally correct following previous fixes, significant risks remain regarding data precision, database constraints, and timezone handling. The application relies on floating-point arithmetic for financial calculations, which is prone to rounding errors. Additionally, foreign key constraints are not enforced, risking data orphans, and the reconciliation logic contains fragile hardcoded dependencies and potential for historical drift.
 
 ---
 
 ## 2. Audit Findings
 
-### [AUDIT-001] - Reconciliation Handler Critical Failure (Schema Mismatch) [RESOLVED]
-*   **Category:** Functional Logic / Data Integrity
-*   **Section:** 6. Data Integrity & Validation / 10. API & Integration Reliability
-*   **Location:** `electron/handlers/reconciliationHandler.ts` (Lines 71-72, 88-90)
-*   **Severity:** CRITICAL
-*   **Description:** The reconciliation handler attempts to query the `transactions` table using columns `source_account_id` and `destination_account_id`. However, the schema defined in `electron/db/schema.sql` only contains `account_id`. This will cause the reconciliation feature to crash 100% of the time.
-*   **Steps to Reproduce:**
-    1. Open the Reconciliation page.
-    2. Attempt to fetch or save a daily record.
-*   **Expected vs. Actual:**
-    *   **Expected:** Successful retrieval of transactions for the specified account.
-    *   **Actual:** SQLite error: "no such column: source_account_id".
-*   **Impact:** Complete loss of reconciliation functionality.
-*   **Evidence:**
-    ```sql
-    -- schema.sql (Line 17)
-    CREATE TABLE IF NOT EXISTS transactions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        group_id INTEGER NOT NULL REFERENCES transaction_groups(id) ON DELETE CASCADE,
-        account_id INTEGER NOT NULL REFERENCES accounts(id),
-        ...
-    );
-    ```
+### [AUDIT-101] - Floating Point Precision Errors in Financial Calculations
+- **Category:** Data Integrity
+- **Section:** 6. Data Integrity & Validation
+- **Location:** `src/engines/ScenarioLogic.ts` (Lines 116, 171, 195, 227), `electron/db/schema.sql` (Line 6)
+- **Severity:** High
+- **Description:** The application uses standard JavaScript `number` (IEEE 754 floating point) and SQLite `REAL` for all monetary values. Financial applications must use integer-based math (storing cents) or decimal data types to avoid precision loss (e.g., `0.1 + 0.2 !== 0.3`).
+- **Steps to Reproduce:**
+    1. Perform a series of transactions with decimal amounts (e.g., 10.10, 20.20).
+    2. Over time, or with complex multiplication/division (if added), accumulated rounding errors may result in balances like `100.000000000001`.
+- **Expected vs. Actual:**
+    - **Expected:** Exact precision for all financial operations.
+    - **Actual:** Potential for minute drift in balances and profit calculations.
+- **Impact:** Accounting discrepancies; users seeing confusing balances (e.g., $0.00000001); inability to balance books perfectly.
+- **Evidence:**
     ```typescript
-    // reconciliationHandler.ts (Line 71)
-    AND (source_account_id = ? OR destination_account_id = ?)
-    ```
-*   **Suggested Fix:** Update the query in `reconciliationHandler.ts` to use `account_id` and interpret the impact based on the `type` column (DEBIT/CREDIT).
-
----
-
-### [AUDIT-002] - Reversed Accounting Logic for Liability Accounts [RESOLVED]
-*   **Category:** Core Logic
-*   **Section:** 3. Functional Logic / 11. State Management
-*   **Location:** `src/engines/ScenarioLogic.ts` (Lines 89, 126, 164)
-*   **Severity:** HIGH
-*   **Description:** The application seeds the "OD Account" as a `LIABILITY`. In standard accounting, a Credit increases a Liability (increases debt). However, `ScenarioLogic.ts` uses `DEBIT` when money is "settled" into the OD account (increasing debt), which the schema trigger actually interprets as *decreasing* the balance (Line 52 of `schema.sql`).
-*   **Steps to Reproduce:** Perform a Kiosk Withdrawal.
-*   **Expected vs. Actual:**
-    *   **Expected:** OD balance increases (Credit to Liability).
-    *   **Actual:** OD balance decreases (Debit to Liability).
-*   **Impact:** Financial statements and account balances will be mathematically inverted for the OD account.
-*   **Evidence:**
-    ```typescript
-    // ScenarioLogic.ts (Line 89)
-    entries = [
-        { account_id: odId, type: 'DEBIT', amount: amountOnUs, ... },
-    ];
+    // ScenarioLogic.ts
+    const profitOffUs = settledOffUs - cashGivenOffUs; // Floating point subtraction
     ```
     ```sql
-    -- schema.sql (Line 52)
-    WHEN NEW.type = 'DEBIT' AND type IN ('LIABILITY'...) THEN current_balance - NEW.amount
+    // schema.sql
+    current_balance REAL NOT NULL DEFAULT 0.0
     ```
-*   **Suggested Fix:** Align `ScenarioLogic.ts` with standard double-entry rules: use CREDIT to increase Liability/Revenue and DEBIT to increase Asset/Expense.
+- **Suggested Fix:** Migrate database schema to store amounts as `INTEGER` (cents) and update frontend/backend logic to divide by 100 for display, or use a library like `decimal.js` for calculations.
 
----
-
-### [AUDIT-003] - Data Persistence Gaps (Missing Triggers) [RESOLVED]
-*   **Category:** Data Integrity
-*   **Section:** 6. Data Integrity & Validation
-*   **Location:** `electron/db/schema.sql`
-*   **Severity:** MEDIUM
-*   **Description:** The database only has an `AFTER INSERT` trigger for balance updates. If a transaction is ever manually updated or deleted via the DB or future features, the `accounts` table balance will become permanently desynchronized.
-*   **Impact:** Risk of silent data corruption and incorrect balances over time.
-*   **Evidence:** Only `update_balance_after_insert` exists (Line 44).
-*   **Suggested Fix:** Implement `AFTER UPDATE` and `AFTER DELETE` triggers on the `transactions` table to maintain balance integrity.
-
----
-
-### [AUDIT-004] - IPC Error Handling Weakness [RESOLVED]
-*   **Category:** Error Handling
-*   **Section:** 7. Error Handling & Observability / 10. API Reliability
-*   **Location:** `electron/handlers/*.ts`
-*   **Severity:** LOW
-*   **Description:** Handlers use generic `try-catch` blocks that log to the terminal but throw the raw error to the renderer. This lacks structured error codes or user-friendly messaging, making it difficult for the UI to handle specific failure modes (e.g., database lock, constraint violation).
-*   **Impact:** Poor user experience during failures; difficult debugging for production issues.
-*   **Suggested Fix:** Implement a standardized IPC response wrapper `{ success: boolean, data?: any, error?: { code: string, message: string } }`.
-
----
-
-### [AUDIT-005] - N+1 Query in Transaction History [RESOLVED]
-*   **Category:** Maintainability & Technical Debt
-*   **Section:** 16. Maintainability
-*   **Location:** `electron/handlers/transactionHandler.ts` (Lines 85-88)
-*   **Severity:** LOW
-*   **Description:** Fetching transaction groups iterates through each group and performs a separate query to fetch its entries. While acceptable for small datasets, this is inefficient.
-*   **Impact:** Performance degradation as the transaction history grows.
-*   **Evidence:**
+### [AUDIT-102] - Missing Foreign Key Enforcement
+- **Category:** Data Integrity
+- **Section:** 6. Data Integrity & Validation
+- **Location:** `electron/db/index.ts`
+- **Severity:** High
+- **Description:** While `schema.sql` defines `REFERENCES` clauses, `better-sqlite3` does not enable Foreign Key constraints by default. The application initialization does not execute `PRAGMA foreign_keys = ON`.
+- **Steps to Reproduce:**
+    1. Manually insert a transaction with an invalid `account_id` via a script or potential bug in `transactionHandler`.
+    2. Delete an account that has transactions.
+- **Expected vs. Actual:**
+    - **Expected:** Database rejects the insertion or cascades the deletion.
+    - **Actual:** Database accepts invalid references; Deleting an account leaves "orphaned" transactions, corrupting the ledger.
+- **Impact:** Silent data corruption; Transaction history pointing to non-existent accounts.
+- **Evidence:**
     ```typescript
-    const groupsWithEntries = groups.map((group: any) => ({
-        ...group,
-        entries: getEntries.all(group.id)
-    }));
+    // electron/db/index.ts
+    const db = new Database(dbPath);
+    db.pragma('journal_mode = WAL');
+    // Missing: db.pragma('foreign_keys = ON');
     ```
-*   **Suggested Fix:** Use a single SQL `JOIN` or `IN` clause to fetch all entries for the retrieved groups in one go.
+- **Suggested Fix:** Add `db.pragma('foreign_keys = ON');` immediately after database connection initialization.
+
+### [AUDIT-103] - Hardcoded Account Dependency in Reconciliation
+- **Category:** Functional Logic
+- **Section:** 3. Functional Logic
+- **Location:** `electron/handlers/reconciliationHandler.ts` (Lines 24-27)
+- **Severity:** High
+- **Description:** The reconciliation handler explicitly queries for an account named `'Cash'`. Although `ScenarioLogic` uses robust slug-based lookup, this specific handler bypasses that safety mechanism. If the user renames the "Cash" account (which is permitted), the reconciliation feature will fail or default to an incorrect account.
+- **Steps to Reproduce:**
+    1. Rename the "Cash" account to "Main Register" in the Accounts tab.
+    2. Attempt to load the Reconciliation page.
+- **Expected vs. Actual:**
+    - **Expected:** System identifies the cash account via its immutable `slug`.
+    - **Actual:** System fails to find 'Cash', falls back to the first account in the list (which might be 'Bank Account'), causing completely wrong reconciliation data.
+- **Impact:** Feature failure after valid user customization; Potential for reconciling the wrong account.
+- **Evidence:**
+    ```typescript
+    // reconciliationHandler.ts
+    const cashAccount = db.prepare("SELECT id FROM accounts WHERE name = 'Cash'").get();
+    ```
+- **Suggested Fix:** Update query to use `slug`: `SELECT id FROM accounts WHERE slug = 'cash'`.
+
+### [AUDIT-104] - Timezone-Unaware Date Handling
+- **Category:** Functional Logic
+- **Section:** 3. Functional Logic
+- **Location:** `src/engines/ScenarioLogic.ts` (Line 67), `electron/handlers/dashboardHandler.ts` (Line 9)
+- **Severity:** Medium
+- **Description:** The application generates dates using `new Date().toISOString().split('T')[0]`. This returns the **UTC** date. For users in timezones ahead of UTC (e.g., India +5:30), transactions made early in the morning (e.g., 04:00 AM) will be recorded as the *previous day*.
+- **Steps to Reproduce:**
+    1. Set system time to 04:00 AM IST (22:30 UTC previous day).
+    2. Create a transaction.
+- **Expected vs. Actual:**
+    - **Expected:** Transaction recorded with the current local date.
+    - **Actual:** Transaction recorded with the previous date.
+- **Impact:** Discrepancy between physical reality (Shop open on Tuesday) and digital records (Monday); Confusion in daily reconciliation.
+- **Suggested Fix:** Use local date generation: `const date = new Date().toLocaleDateString('en-CA')` (YYYY-MM-DD in local time) or a library like `date-fns`.
+
+### [AUDIT-105] - Stale Reconciliation Snapshots
+- **Category:** Data Integrity
+- **Section:** 11. State Management
+- **Location:** `electron/handlers/reconciliationHandler.ts`
+- **Severity:** Medium
+- **Description:** The `daily_records` table stores a snapshot of `cash_closing_calculated`. If a user edits or deletes a transaction from a past date, the `accounts` balance updates (via triggers), but the `daily_records` snapshot for that day remains unchanged and incorrect.
+- **Steps to Reproduce:**
+    1. Complete reconciliation for Day X.
+    2. Edit a transaction from Day X that changes the cash balance.
+- **Expected vs. Actual:**
+    - **Expected:** Reconciliation record flags itself as "Out of Sync" or updates.
+    - **Actual:** Reconciliation record shows the old calculated balance, which now disagrees with the sum of transactions.
+- **Impact:** Historical reports may contradict the live ledger; False sense of security in closed records.
+- **Suggested Fix:** Either prevent editing transactions for "Closed" days, or implement a hook to invalidate/flag `daily_records` when historical transactions are modified.
+
+### [AUDIT-106] - Zero-Trust Input Validation Failure
+- **Category:** Data Integrity
+- **Section:** 6. Data Integrity & Validation
+- **Location:** `electron/handlers/transactionHandler.ts`
+- **Severity:** Medium
+- **Description:** The API endpoint `db:add-transaction-group` trusts the frontend payload implicitly. It does not validate that `amount` is positive, that `date` is valid/reasonable, or that the referenced accounts actually exist (relying on DB constraints which are currently disabled, see AUDIT-102).
+- **Steps to Reproduce:**
+    1. Send an IPC message to `db:add-transaction-group` with `amount: -500`.
+- **Expected vs. Actual:**
+    - **Expected:** Backend rejects the negative amount.
+    - **Actual:** Backend records the transaction, potentially reversing the accounting logic (Debit -500 becomes a Credit effectively).
+- **Impact:** Malicious or buggy frontend code can corrupt the ledger; unintentional reversals.
+- **Suggested Fix:** Implement a schema validation library (like `zod`) in the IPC handler to enforce positive amounts, valid dates, and required fields before touching the database.
+
+### [AUDIT-107] - Reconciliation Read Isolation Failure (Race Condition)
+- **Category:** State Management
+- **Section:** 11. State Management
+- **Location:** `electron/handlers/reconciliationHandler.ts` (Lines 46-92)
+- **Severity:** Medium
+- **Description:** The reconciliation logic performs a "Read-Compute" sequence that is not atomic. It reads the `current_balance` (Step 1) and then queries `transactions` (Step 2) to back-calculate the opening balance. If a new transaction is inserted between Step 1 and Step 2, the `transactions` query will include it, but the `current_balance` snapshot will not.
+- **Steps to Reproduce:**
+    1. High-frequency environment (or unlucky timing).
+    2. Request Reconciliation data.
+    3. Simultaneously insert a transaction.
+- **Expected vs. Actual:**
+    - **Expected:** Consistent snapshot of data.
+    - **Actual:** Calculated Opening Balance is incorrect (shifted by the amount of the intervening transaction).
+- **Impact:** Reconciliation numbers that don't add up; Phantom discrepancies.
+- **Suggested Fix:** Wrap the entire read operation in a `db.transaction(() => { ... })` block (even for reads) to ensure SQLite provides a SERIALIZABLE isolation snapshot.
+
+### [AUDIT-108] - Ambiguous Profit Logic for Off-Us Withdrawals
+- **Category:** Functional Logic
+- **Section:** 3. Functional Logic
+- **Location:** `src/engines/ScenarioLogic.ts` (Lines 150-158) vs `core_logic_live.md` (Section 3)
+- **Severity:** Low (Ambiguity)
+- **Description:** `ScenarioLogic.ts` calculates profit for Kiosk Withdrawals as `Settled (OD) - Cash Given`. If positive, it credits Revenue. However, `core_logic_live.md` Section 3 states "when transaction is done through kiyosk then difference amount will be credited to cash account". The code leaves the profit asset in the OD account (as part of the settlement), whereas the requirement suggests the user expects the profit to be associated with Cash (possibly implying fees are collected in cash separately?).
+- **Impact:** Potential mismatch between physical cash handling (User expectations) and system accounting.
+- **Suggested Fix:** Clarify with the user: Does "credited to cash account" mean they physically collect the fee in cash? If so, the logic needs to adjust `cashGiven` vs `amount` inputs. If not, the documentation terminology is likely imprecise.
+
+### [AUDIT-109] - Dashboard Logic Fragility (Hardcoded Account Name)
+- **Category:** Functional Logic
+- **Section:** 3. Functional Logic
+- **Location:** `electron/handlers/dashboardHandler.ts` (Lines 28-38)
+- **Severity:** Medium
+- **Description:** The Dashboard attempts to fetch the "Current Cash Position" by looking for an account named `'Cash'`. If this account is renamed (e.g., to "Shop Safe"), the query fails and falls back to summing *all* Asset accounts (including Bank and OD).
+- **Steps to Reproduce:**
+    1. Rename "Cash" account.
+    2. View Dashboard.
+- **Expected vs. Actual:**
+    - **Expected:** Dashboard shows the balance of the physical cash account.
+    - **Actual:** Dashboard shows the total value of the business (Cash + Bank + OD), which is a completely different metric, without any indication that the context has changed.
+- **Impact:** Misleading financial snapshot.
+- **Suggested Fix:** Use `slug = 'cash'` for the lookup.
+
+### [AUDIT-110] - Data Loss in On-Us Withdrawals
+- **Category:** Functional Logic
+- **Section:** 3. Functional Logic
+- **Location:** `src/engines/ScenarioLogic.ts` (Lines 92-102)
+- **Severity:** High
+- **Description:** In `KIOSK_WITHDRAWAL_ON_US`, the logic completely ignores the `total_settled` input parameter when creating ledger entries. It uses `amount` (Cash Given) for both the Cash credit and the OD debit. If there is a difference (e.g., a fee charged to the OD account, or a data entry discrepancy), that difference is silently discarded, leading to an incorrect OD balance.
+- **Steps to Reproduce:**
+    1. Submit an On-Us Withdrawal: Amount = 100, Total Settled = 105.
+- **Expected vs. Actual:**
+    - **Expected:** OD Debit = 105, Cash Credit = 100, Difference (5) = Expense/Loss.
+    - **Actual:** OD Debit = 100, Cash Credit = 100. The 5 unit difference is lost from the records.
+- **Impact:** Bank reconciliation will fail; OD balance will be understated.
+- **Suggested Fix:** Use `total_settled` for the OD entry and calculate the difference as profit/loss, similar to the Off-Us logic.
 
 ---
 
@@ -199,56 +267,108 @@ Phase 2 of the audit focuses on the React-based frontend. While the UI is visual
 
 ---
 
-## 2.3 Findings Summary
+# SYSTEM AUDIT - Phase 3: Deep Dive UI/UX & User Journey
 
-### Phase 1 (Critical Backend/Logic)
-*   **Reconciliation:** Broken due to column name mismatch.
-*   **Accounting:** OD Account (Liability) logic is inverted.
-*   **Persistence:** Balance integrity is not guaranteed for non-insert operations.
+## 1. Executive Summary
+Phase 3 expands the audit to cover the comprehensive User Journey, focusing on the resilience of the interface and the continuity of user tasks. The most critical finding is a logic fragility where renaming a default account destroys the entire transaction engine. Additionally, the application suffers from destructive state loss when switching tabs, forcing users to restart tasks if they navigate away.
 
-### Phase 2 (Frontend/UX)
-*   **Performance:** Background animations cause layout thrashing (Math.random).
-*   **UX:** Blocking alerts disrupt user flow.
-*   **Accessibility:** Critical WCAG gaps in form controls.
-*   **Theme:** Dashboard chart ignores active theme variables.
+## 2. Audit Findings (UI/UX Deep Dive)
+
+### [AUDIT-011] - Critical Logic Fragility (Account Renaming) [RESOLVED]
+*   **Category:** User Journey / User Error Protection
+*   **Section:** 3. Functional Logic
+*   **Location:** `src/engines/ScenarioLogic.ts` (Lines 25-39), `src/pages/Accounts.tsx`
+*   **Severity:** CRITICAL
+*   **Description:** The application's core logic (`ScenarioLogic.ts`) relies on hardcoded strings (`"Cash"`, `"OD Account"`) to identify accounts for ledger entries. However, the `Accounts` page allows users to rename any account. If a user renames "Cash" to "Register 1", `findAccount` will fail, throwing an error and making it impossible to record ANY transactions.
+*   **Steps to Reproduce:**
+    1. Go to "Accounts" tab.
+    2. Click Edit on the "Cash" account.
+    3. Rename it to "My Cash".
+    4. Go to "Transactions" tab and try to submit a "Kiosk Deposit".
+*   **Expected vs. Actual:**
+    *   **Expected:** The system tracks the cash movement for the renamed account OR prevents renaming of system-critical accounts.
+    *   **Actual:** Transaction fails with `Error: Account Cash not found`.
+*   **Impact:** Complete system paralysis triggered by a standard user action.
+*   **Evidence:**
+    ```typescript
+    // ScenarioLogic.ts
+    const ACC = { CASH: 'Cash', ... };
+    const findAccount = ... accounts.find(a => a.name === type)
+    ```
+*   **Suggested Fix:** Add a `is_system` or `slug` flag to the `accounts` table. Look up accounts by this immutable flag/slug instead of the mutable `name`. Prevent users from deleting/renaming system accounts in the UI.
+
+---
+
+### [AUDIT-012] - Destructive State Loss on Tab Switch [RESOLVED]
+*   **Category:** User Experience (UX)
+*   **Section:** 17. User Journey
+*   **Location:** `src/App.tsx` (Lines 27-30)
+*   **Severity:** HIGH
+*   **Description:** The application uses conditional rendering (`{activeTab === 'transactions' && ...}`) to display pages. This unmounts the component completely when switching tabs. If a user is half-way through filling out a form in "Transactions" and checks "Accounts" to verify a balance, their entire form state is destroyed.
+*   **Impact:** High friction for power users; loss of data; frustration.
+*   **Evidence:**
+    ```tsx
+    // App.tsx
+    {activeTab === 'transactions' && <Transactions />}
+    ```
+*   **Suggested Fix:** Use a routing library (React Router) with layout persistence, or simple CSS hiding (`style={{ display: activeTab === '...' ? 'block' : 'none' }}`) to keep components mounted (though less performant), or ideally move form state to a global context/store if persistence is needed.
+
+---
+
+### [AUDIT-013] - Extensive Theming Violations (Hardcoded Colors) [RESOLVED]
+*   **Category:** User Interface (UI)
+*   **Section:** 1. User Interface (UI)
+*   **Location:** `src/pages/Settings.tsx` (Line 99), `src/pages/Accounts.tsx` (Line 93)
+*   **Severity:** LOW
+*   **Description:** Despite having a robust theming engine (`ThemeContext` + Tailwind variables), several pages use hardcoded color classes (e.g., `bg-blue-600`, `text-red-500`). This breaks the visual immersion when using non-blue themes like "Obsidian" (Violet) or "Celestial" (Sky).
+*   **Impact:** Inconsistent visual identity; "broken" feel when changing themes.
+*   **Evidence:**
+    ```tsx
+    // Accounts.tsx
+    className="... bg-blue-600 text-white ..."
+    ```
+*   **Suggested Fix:** strict usage of `bg-accent`, `text-destructive`, `bg-primary`, etc. Scan codebase for standard color names (`blue-`, `red-`, `green-`) and replace with semantic tokens.
+
+---
+
+### [AUDIT-014] - Non-Responsive Layout (Fixed Sidebar) [RESOLVED]
+*   **Category:** User Interface (UI)
+*   **Section:** 1. User Interface (UI)
+*   **Location:** `src/components/Sidebar.tsx` (Line 85)
+*   **Severity:** MEDIUM
+*   **Description:** The sidebar has a fixed width of `w-80` (320px). On smaller screens (tablets or resized windows), this consumes a significant portion of the viewport, squeezing the main content.
+*   **Impact:** Poor usability on non-fullscreen desktop windows.
+*   **Suggested Fix:** Make the sidebar collapsible (icon-only mode) or use a responsive width (`w-64` on md, `w-20` on sm).
+
+---
+
+### [AUDIT-015] - Accessibility Gaps (Icon-Only Buttons) [RESOLVED]
+*   **Category:** Accessibility
+*   **Section:** 14. Compliance & Standards (WCAG)
+*   **Location:** `src/pages/Accounts.tsx` (Line 191), `src/pages/Settings.tsx` (Line 141)
+*   **Severity:** MEDIUM
+*   **Description:** Action buttons (Edit, Delete/Trash, Save) rely solely on Lucide icons without `aria-label` text. Screen readers will likely announce them as "button" or ignore them.
+*   **Impact:** Unnavigable for visually impaired users.
+*   **Evidence:**
+    ```tsx
+    <button onClick={...}><Trash2 size={18} /></button>
+    ```
+*   **Suggested Fix:** Add `aria-label="Delete Transaction Type"` to these buttons.
 
 ---
 
 # 3. Risk Assessment & Remediation Strategy
 
 ### 3.1 Executive Summary
-*   **Overall System Health Score:** 3/10 (Critical)
-*   **Concise Summary:** The `kiosk-desktop` application is currently in a high-risk state. While the visual layer provides a modern appearance, the underlying core logic and data handlers suffer from critical failures that prevent key features from functioning (Reconciliation) or cause significant data inaccuracy (Accounting Logic). Combined with high-severity performance and accessibility issues, the system requires immediate remediation before it can be considered production-ready.
+*   **Overall System Health Score:** 2/10 (Critical / Unstable)
+*   **Updated Assessment:** The discovery of [AUDIT-011] (Account Renaming fragility) significantly lowers the system's reliability score. The application allows users to unknowingly destroy the entire transaction processing engine through a standard UI action. Combined with the previously identified data integrity issues, the system is **not production ready**.
 
 ### 3.2 Prioritization Matrix
 
 | Priority | Category | Finding ID(s) | Impact / Rationale |
 | :--- | :--- | :--- | :--- |
-| **P0: Immediate** | **Quick Wins** | AUDIT-001, AUDIT-006 | Restores basic functionality (Reconciliation) and fixes severe visual jitter/performance issues. |
-| **P1: Urgent** | **Structural Refactors** | AUDIT-002, AUDIT-008 | Corrects fundamental financial accounting logic and ensures legal/accessibility compliance. |
-| **P2: Necessary** | **UX/DX Improvements** | AUDIT-007, AUDIT-010, AUDIT-004 | Improves application flow, responsiveness, and error resilience through better state/feedback management. |
-| **P3: Strategic** | **Long-term Roadmap** | AUDIT-003, AUDIT-005, AUDIT-009 | Hardens data integrity against manual edits, optimizes scaling performance, and maintains design consistency. |
-
-### 3.3 Strategic Recommendations
-
-#### 3.3.1 Improving the Testing Strategy
-*   **Unit Testing:** Expand Vitest coverage specifically for `ScenarioLogic.ts` and database handlers. Every accounting scenario should have a corresponding test case verifying balance delta directions.
-*   **Integration Testing:** Implement IPC-level integration tests to verify the bridge between Renderer and Main processes without requiring a full GUI.
-*   **E2E Testing:** Introduce Playwright for critical "Golden Path" user journeys (e.g., performing a transaction and verifying the dashboard update).
-
-#### 3.3.2 Hardening the Data Integrity Layer
-*   **Atomic Transactions:** Ensure all multi-step database operations (like scenario execution) are wrapped in SQLite `BEGIN TRANSACTION` / `COMMIT` blocks to prevent partial state updates.
-*   **Integrity Triggers:** Implement the missing `AFTER UPDATE` and `AFTER DELETE` triggers on the `transactions` table to prevent account balance drift during manual data corrections.
-
-#### 3.3.3 Modernizing the UX/UI Pattern
-*   **Asynchronous Feedback:** Replace all synchronous `window.alert()` calls with a non-blocking toast notification system (e.g., `sonner` or `react-hot-toast`).
-*   **Accessible Controls:** Adopt a headless UI library (like Radix UI) for complex components to ensure WCAG 2.1 AA compliance without sacrificing visual style.
-*   **Stable Animations:** Move all random visual logic (stars/comets) into `useEffect` or dedicated animation refs to prevent re-render "teleportation."
-
-#### 3.3.4 Improving Observability
-*   **Structured Logging:** Replace generic `console.log` in Electron handlers with a structured logger (e.g., `pino` or `winston`) that writes to a local file for post-mortem analysis.
-*   **Standardized IPC Responses:** Implement a global IPC response wrapper that includes consistent error codes and metadata, allowing the UI to react intelligently to specific failure modes.
-
-#### 3.3.5 CI/CD Pipeline Improvements
-*   **Automated Quality Gates:** Configure GitHub Actions to run linters, TypeScript type-checks, and the test suite on every pull request. This is the primary defense against "Breaking Changes" like the schema mismatch found in Phase 1.
-*   **Build Artifacts:** Automate the packaging process to ensure that the executable is always built from a clean, tested environment.
+| **P0: Critical** | **System Stability** | AUDIT-001, AUDIT-011 | Fixes crashes and prevents users from breaking the app logic via simple edits. |
+| **P1: Urgent** | **Financial Integrity** | AUDIT-002, AUDIT-003 | Ensures money is counted correctly and data persists safely. |
+| **P2: High** | **User Journey** | AUDIT-012, AUDIT-006 | Prevents data loss during navigation and fixes jarring visual bugs. |
+| **P3: Medium** | **Compliance & Standards** | AUDIT-008, AUDIT-015 | WCAG compliance is legally required in many jurisdictions. |
+| **P4: Low** | **Polish** | AUDIT-009, AUDIT-013, AUDIT-014 | Visual consistency and layout improvements. |
