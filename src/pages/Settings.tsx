@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Save, Plus, Trash2 } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
 import { useToast } from '../contexts/ToastContext';
+import { parseCurrencyToInt } from '../utils/formatUtils';
 
 interface TransactionType {
   id: string;
@@ -68,7 +69,7 @@ const Settings: React.FC = () => {
     const newType: TransactionType = {
       id: newTypeLabel.toLowerCase().replace(/\s+/g, '_'),
       label: newTypeLabel,
-      defaultFee: Number(newTypeFee)
+      defaultFee: parseCurrencyToInt(newTypeFee)
     };
 
     setTransactionTypes([...transactionTypes, newType]);
@@ -82,9 +83,9 @@ const Settings: React.FC = () => {
     setIsDirty(true);
   };
 
-  const updateFee = (id: string, fee: number) => {
+  const updateFee = (id: string, fee: string | number) => {
     setTransactionTypes(transactionTypes.map(t => 
-      t.id === id ? { ...t, defaultFee: fee } : t
+      t.id === id ? { ...t, defaultFee: parseCurrencyToInt(fee) } : t
     ));
     setIsDirty(true);
   };
@@ -98,7 +99,7 @@ const Settings: React.FC = () => {
             onClick={saveSettings}
             className="flex items-center px-4 py-2 bg-accent text-white rounded-lg hover:bg-accent/80"
           >
-            <Save size={20} className="mr-2" />
+            <Plus size={20} className="mr-2" />
             Save Changes
           </button>
         )}
@@ -133,8 +134,8 @@ const Settings: React.FC = () => {
                   type="number"
                   step="0.01"
                   className="w-24 p-1 border border-border bg-app rounded text-right text-primary"
-                  value={type.defaultFee}
-                  onChange={(e) => updateFee(type.id, Number(e.target.value))}
+                  value={type.defaultFee / 100}
+                  onChange={(e) => updateFee(type.id, e.target.value)}
                 />
               </div>
               <button

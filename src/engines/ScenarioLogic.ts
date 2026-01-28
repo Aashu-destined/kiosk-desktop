@@ -1,17 +1,22 @@
 import { Account, TransactionGroupInput } from '../types/ipc';
 
-export type ScenarioType = 
-    | 'KIOSK_WITHDRAWAL_ON_US' 
+export type ScenarioType =
+    | 'KIOSK_WITHDRAWAL_ON_US'
     | 'KIOSK_WITHDRAWAL_OFF_US'
     | 'KIOSK_DEPOSIT'
-    | 'PHONEPAY_WITHDRAWAL' 
+    | 'PHONEPAY_WITHDRAWAL'
     | 'PHONEPAY_DEPOSIT'
-    | 'SERVICE_SALE';
+    | 'SERVICE_SALE'
+    | 'INTERNAL_TRANSFER';
 
 export interface ScenarioParams {
     amount?: number;        // Cash Amount (Given/Taken)
     total_settled?: number; // OD/Bank Amount (Settled/Received)
     
+    // For Internal Transfer
+    fromAccountId?: number;
+    toAccountId?: number;
+
     // For Service Sale
     cash_in?: number;
     digital_in?: number;
@@ -49,6 +54,16 @@ const ACC = {
     EXPENSE: 'expenses'
 };
 
+/**
+ * Converts a decimal number (e.g., 10.50) to an integer (1050).
+ * Handles potential floating point precision issues during multiplication.
+ */
+const toInt = (val: number | string | undefined): number => {
+    if (val === undefined) return 0;
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    return Math.round(num * 100);
+};
+
 /*
  * TERMINOLOGY MAPPING:
  * User Terminology vs Standard Accounting (Used in Code)
@@ -64,7 +79,8 @@ export const generateLedgerEntries = (
     params: ScenarioParams,
     accounts: Account[]
 ): TransactionGroupInput => {
-    const date = new Date().toISOString().split('T')[0];
+    // Fix AUDIT-104: Use local date instead of UTC
+    const date = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
     const { customerName, description } = params;
 
     const cashId = findAccount(accounts, ACC.CASH);
@@ -79,95 +95,66 @@ export const generateLedgerEntries = (
         if (params.amount === undefined || params.total_settled === undefined) {
             throw new Error("Missing parameters: amount or total_settled");
         }
+        if (params.amount <= 0) {
+            throw new Error("Transaction amounts must be positive");
+        }
+        if (params.total_settled <= 0) {
+            throw new Error("Transaction amounts must be positive");
+        }
     };
 
     switch (scenario) {
         case 'KIOSK_WITHDRAWAL_ON_US':
-            // Logic: No profit allowed.
-            // Constraint: Ensure Amount === Total Settled.
-            // Entries:
-            // 1. Debit OD Account with the Amount.
-            // 2. Credit Cash with the Amount.
+            // Logic: Fix AUDIT-110 - Handle potential fee/profit even if on-us.
             validateParams();
-            const amountOnUs = Number(params.amount);
-            
-            // Enforce constraint loosely for calculation, but warn if mismatch
-            if (Math.abs(Number(params.amount) - Number(params.total_settled)) > 0.01) {
-                // We use the entered amount, assuming UI handled validation or user intends to track cash movement.
-            }
+            const settledOnUs = toInt(params.total_settled);
+            const cashGivenOnUs = toInt(params.amount);
+            const profitOnUs = settledOnUs - cashGivenOnUs;
 
             entries = [
-                { account_id: odId, type: 'DEBIT', amount: amountOnUs, description: `Bank Settlement (In) - On-us` },
-                { account_id: cashId, type: 'CREDIT', amount: amountOnUs, description: 'Cash Disbursement' },
+                { account_id: odId, type: 'DEBIT', amount: settledOnUs, description: `Bank Settlement (In) - On-us` },
+                { account_id: cashId, type: 'CREDIT', amount: cashGivenOnUs, description: 'Cash Disbursement' },
             ];
 
-            groupDesc = `Kiosk Withdrawal (On-us): ${amountOnUs}`;
+            if (profitOnUs > 0) {
+                // Fix AUDIT-112: Profit credited to cash
+                entries.push({ account_id: cashId, type: 'DEBIT', amount: profitOnUs, description: 'Commission (Cash)' });
+                entries.push({ account_id: revenueId, type: 'CREDIT', amount: profitOnUs, description: 'Service Revenue' });
+            } else if (profitOnUs < 0) {
+                entries.push({ account_id: revenueId, type: 'DEBIT', amount: Math.abs(profitOnUs), description: 'Service Loss' });
+            }
+
+            groupDesc = `Kiosk Withdrawal (On-us): ${cashGivenOnUs / 100}`;
             break;
 
         case 'KIOSK_WITHDRAWAL_OFF_US':
-            // Logic: Treat this as a split transaction: Principal Out (Expense) + Fee In (Revenue).
-            // 1. Debit OD Account with the Full Settlement Amount.
-            // 2. Credit Cash with the Full Settlement Amount (Giving principal cash to customer).
-            // 3. Debit Cash with the Profit Amount (Fee collected from customer).
-            // 4. Credit Revenue with the Profit Amount.
+            // Logic: Split transaction with profit allocation to Cash (AUDIT-108/112).
             validateParams();
-            const settledOffUs = Number(params.total_settled);
-            const cashGivenOffUs = Number(params.amount);
+            const settledOffUs = toInt(params.total_settled);
+            const cashGivenOffUs = toInt(params.amount);
             const profitOffUs = settledOffUs - cashGivenOffUs;
-
-            // FIX: Ensure credits and debits balance.
-            // Previous Logic: Debit OD (100), Credit Cash (100). Debit Cash (10), Credit Revenue (10). Total Debit 110, Total Credit 110.
-            // Wait, let's re-verify the logic.
-            // OD (Asset) Debit 100 -> Balance Increases by 100.
-            // Cash (Asset) Credit 100 -> Balance Decreases by 100.
-            // Cash (Asset) Debit 10 -> Balance Increases by 10.
-            // Revenue (Revenue) Credit 10 -> Balance Increases by 10.
-            // Net Asset Change: +100 - 100 + 10 = +10.
-            // Net Equity/Revenue Change: +10.
-            // Assets = Liabilities + Equity. +10 = 0 + 10. Logic holds.
-
-            // HOWEVER, let's simplify for clarity.
-            // Usually, we just dispense cash (Principal) and receive settlement (Principal + Fee).
-            // But here, the settlement IS the source of truth for money coming in.
-            // Money In: Settlement (100) -> OD.
-            // Money Out: Cash Given (90) -> Customer.
-            // Net: +10 (Profit).
 
             entries = [
                 { account_id: odId, type: 'DEBIT', amount: settledOffUs, description: `Bank Settlement (In) - Off-us` },
-                { account_id: cashId, type: 'CREDIT', amount: cashGivenOffUs, description: 'Cash Out to Customer' }, // Only credit what actually left
+                { account_id: cashId, type: 'CREDIT', amount: cashGivenOffUs, description: 'Cash Out to Customer' },
             ];
 
-            // If settled (100) > given (90), we have an extra 10 in OD? No, OD received 100.
-            // We gave 90 cash.
-            // Assets: OD +100, Cash -90. Net +10.
-            // Equity: Revenue +10.
-            // Balancing:
-            // Debits: OD 100.
-            // Credits: Cash 90.
-            // Difference: 10 (Credit needed to balance). -> Revenue.
-
              if (profitOffUs > 0) {
+                // Fix AUDIT-108/112: Profit credited to cash
+                entries.push({ account_id: cashId, type: 'DEBIT', amount: profitOffUs, description: 'Commission (Cash)' });
                 entries.push({ account_id: revenueId, type: 'CREDIT', amount: profitOffUs, description: 'Service Revenue' });
             } else if (profitOffUs < 0) {
-                 // Loss: Settled (90) < Given (100).
-                 // Debits: OD 90.
-                 // Credits: Cash 100.
-                 // Difference: 10 (Debit needed). -> Expense/Loss.
                 entries.push({ account_id: revenueId, type: 'DEBIT', amount: Math.abs(profitOffUs), description: 'Service Loss' });
             }
 
-            groupDesc = `Kiosk Withdrawal (Off-us): ${cashGivenOffUs}`;
+            groupDesc = `Kiosk Withdrawal (Off-us): ${cashGivenOffUs / 100}`;
             break;
 
         case 'KIOSK_DEPOSIT':
             // Logic: Standard double-entry.
-            // 1. Debit Cash with the Full Cash Received.
-            // 2. Credit OD Account with the Settlement Amount.
-            // 3. Credit Revenue with the Profit Amount.
             validateParams();
-            const cashTakenKiosk = Number(params.amount);
-            const deductedFromODKiosk = Number(params.total_settled);
+            const cashTakenKiosk = toInt(params.amount);
+            const deductedFromODKiosk = toInt(params.total_settled);
             const profitKioskDep = cashTakenKiosk - deductedFromODKiosk;
 
             entries = [
@@ -181,17 +168,14 @@ export const generateLedgerEntries = (
                 entries.push({ account_id: revenueId, type: 'DEBIT', amount: Math.abs(profitKioskDep), description: 'Service Loss' });
             }
 
-            groupDesc = `Kiosk Deposit: ${cashTakenKiosk}`;
+            groupDesc = `Kiosk Deposit: ${cashTakenKiosk / 100}`;
             break;
 
         case 'PHONEPAY_WITHDRAWAL':
-            // Logic: Treat this as a split transaction: Principal Out (Expense) + Fee In (Revenue).
-            // 1. Debit Bank Account with the Full Settlement Amount.
-            // 2. Credit Cash with the Actual Cash Given.
-            // 3. Credit Revenue with the Profit (or Debit if Loss).
+            // Logic: Split transaction with profit allocation to Cash (AUDIT-112).
             validateParams();
-            const settledPP = Number(params.total_settled);
-            const cashGivenPP = Number(params.amount);
+            const settledPP = toInt(params.total_settled);
+            const cashGivenPP = toInt(params.amount);
             const profitPP = settledPP - cashGivenPP;
 
             entries = [
@@ -200,30 +184,21 @@ export const generateLedgerEntries = (
             ];
 
             if (profitPP > 0) {
-                // Settled (100) > Given (90).
-                // Debit: Bank 100.
-                // Credit: Cash 90.
-                // Balance: 10 Credit (Revenue).
+                // Fix AUDIT-112: Profit credited to cash
+                entries.push({ account_id: cashId, type: 'DEBIT', amount: profitPP, description: 'Commission (Cash)' });
                 entries.push({ account_id: revenueId, type: 'CREDIT', amount: profitPP, description: 'Service Revenue' });
             } else if (profitPP < 0) {
-                 // Settled (90) < Given (100).
-                 // Debit: Bank 90.
-                 // Credit: Cash 100.
-                 // Balance: 10 Debit (Loss).
                 entries.push({ account_id: revenueId, type: 'DEBIT', amount: Math.abs(profitPP), description: 'Service Loss' });
             }
 
-            groupDesc = `PhonePe Withdrawal: ${cashGivenPP}`;
+            groupDesc = `PhonePe Withdrawal: ${cashGivenPP / 100}`;
             break;
 
         case 'PHONEPAY_DEPOSIT':
             // Logic: Standard double-entry.
-            // 1. Debit Cash with the Full Cash Received.
-            // 2. Credit Bank Account with the Settlement Amount.
-            // 3. Credit Revenue with the Profit Amount.
             validateParams();
-            const cashTakenPP = Number(params.amount);
-            const sentFromBankPP = Number(params.total_settled);
+            const cashTakenPP = toInt(params.amount);
+            const sentFromBankPP = toInt(params.total_settled);
             const profitPPDep = cashTakenPP - sentFromBankPP;
 
             entries = [
@@ -237,15 +212,15 @@ export const generateLedgerEntries = (
                 entries.push({ account_id: revenueId, type: 'DEBIT', amount: Math.abs(profitPPDep), description: 'Service Loss' });
             }
 
-            groupDesc = `PhonePe Deposit: ${cashTakenPP}`;
+            groupDesc = `PhonePe Deposit: ${cashTakenPP / 100}`;
             break;
 
         case 'SERVICE_SALE':
             // Complex case: Cash In, Digital In, Cash Out, Digital Out.
-            const cashIn = Number(params.cash_in || 0);
-            const digitalIn = Number(params.digital_in || 0);
-            const cashOut = Number(params.cash_out || 0);
-            const digitalOut = Number(params.digital_out || 0);
+            const cashIn = toInt(params.cash_in || 0);
+            const digitalIn = toInt(params.digital_in || 0);
+            const cashOut = toInt(params.cash_out || 0);
+            const digitalOut = toInt(params.digital_out || 0);
 
             const totalIn = cashIn + digitalIn;
             const totalOut = cashOut + digitalOut;
@@ -264,6 +239,22 @@ export const generateLedgerEntries = (
             }
 
             groupDesc = `Service Sale / General`;
+            break;
+        
+        case 'INTERNAL_TRANSFER':
+            // Fix AUDIT-111: Implement Internal Transfer
+            const transferAmount = toInt(params.amount);
+            const fromId = params.fromAccountId;
+            const toId = params.toAccountId;
+
+            if (!fromId || !toId) throw new Error("Missing accounts for transfer");
+
+            entries = [
+                { account_id: fromId, type: 'CREDIT', amount: transferAmount, description: 'Transfer Out' },
+                { account_id: toId, type: 'DEBIT', amount: transferAmount, description: 'Transfer In' }
+            ];
+
+            groupDesc = `Internal Transfer: ${transferAmount / 100}`;
             break;
     }
 

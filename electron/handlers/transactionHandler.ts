@@ -5,6 +5,20 @@ import { handleIpcRequest } from '../utils/ipcHelper';
 
 ipcMain.handle('db:add-transaction-group', async (_: any, groupData: TransactionGroupInput) => {
     return handleIpcRequest(() => {
+        // Fix AUDIT-106: Basic Input Validation
+        if (!groupData.scenario_type || !groupData.date || !groupData.entries || groupData.entries.length === 0) {
+            throw new Error("Invalid transaction group data: Missing core fields");
+        }
+
+        for (const entry of groupData.entries) {
+            if (!Number.isInteger(entry.amount) || entry.amount <= 0) {
+                throw new Error("Invalid transaction amount: Must be a positive integer");
+            }
+            if (!entry.account_id || !entry.type) {
+                throw new Error("Invalid transaction entry: Missing account_id or type");
+            }
+        }
+
         const insertGroup = db.prepare(`
             INSERT INTO transaction_groups (scenario_type, date, customer_name, description, timestamp)
             VALUES (@scenario_type, @date, @customer_name, @description, @timestamp)
@@ -40,6 +54,10 @@ ipcMain.handle('db:add-transaction-group', async (_: any, groupData: Transaction
                     timestamp: timestamp
                 });
             }
+
+            // Fix AUDIT-105: Invalidate daily reconciliation record for this date
+            // This ensures that if historical data is added, the reconciliation must be re-performed.
+            db.prepare("UPDATE daily_records SET status = 'OPEN' WHERE date = ?").run(groupData.date);
 
             return { groupId: Number(groupId) };
         })();

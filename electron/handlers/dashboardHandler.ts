@@ -23,15 +23,15 @@ export const handleGetDashboardStats = async (_event: any) => {
         const profitResult = profitStmt.get(today) as { totalProfit: number };
         const totalProfit = profitResult?.totalProfit || 0;
 
-        // 2. Current Cash Position (Balance of 'Cash' account)
+        // 2. Current Cash Position (Balance of 'cash' slug account)
         let cashBalance = 0;
-        const specificCashStmt = db.prepare("SELECT current_balance FROM accounts WHERE name = 'Cash'");
+        const specificCashStmt = db.prepare("SELECT current_balance FROM accounts WHERE slug = 'cash'");
         const specificCash = specificCashStmt.get() as { current_balance: number };
         
         if (specificCash) {
             cashBalance = specificCash.current_balance;
         } else {
-             // Fallback: Sum of all assets if no specific 'Cash' account
+             // Fallback: Sum of all assets if no specific 'cash' slug account
              const allAssetsStmt = db.prepare("SELECT SUM(current_balance) as total FROM accounts WHERE type = 'ASSET'");
              const allAssets = allAssetsStmt.get() as { total: number };
              cashBalance = allAssets?.total || 0;

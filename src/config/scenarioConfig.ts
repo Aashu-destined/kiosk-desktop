@@ -3,7 +3,7 @@ import { ScenarioType } from '../engines/ScenarioLogic';
 export interface ScenarioField {
   name: string;
   label: string;
-  type?: string;
+  type?: 'text' | 'number' | 'select';
   required?: boolean;
   placeholder?: string;
 }
@@ -51,6 +51,13 @@ export const SCENARIO_CONFIG: Record<ScenarioType, ScenarioConfig> = {
       { name: 'digital_in', label: 'Digital Received (In) (₹)', required: false },
       { name: 'cash_out', label: 'Cash Paid (Out) (₹)', required: false },
       { name: 'digital_out', label: 'Digital Paid (Out) (₹)', required: false }
+    ]
+  },
+  'INTERNAL_TRANSFER': {
+    fields: [
+      { name: 'amount', label: 'Transfer Amount (₹)', required: true },
+      { name: 'fromAccountId', label: 'From Account', required: true, type: 'select' },
+      { name: 'toAccountId', label: 'To Account', required: true, type: 'select' }
     ]
   }
 };

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useData } from '../contexts/DataContext';
 import { normalizeChartData } from '../utils/chartUtils';
+import { formatCurrency, formatCurrencyWithSymbol } from '../utils/formatUtils';
 
 const Dashboard: React.FC = () => {
   const { stats: dashboardStats, isLoading, error } = useData();
@@ -29,14 +30,14 @@ const Dashboard: React.FC = () => {
         <div className="card-island flux-interactive">
           <h3 className="text-sm font-medium text-muted mb-1">Today's Profit (Fees)</h3>
           <div className="text-3xl font-bold text-accent">
-            ₹{dashboardStats.dailyOverview.totalProfit.toFixed(2)}
+            {formatCurrencyWithSymbol(dashboardStats.dailyOverview.totalProfit)}
           </div>
         </div>
         
         <div className="card-island flux-interactive">
           <h3 className="text-sm font-medium text-muted mb-1">Current Cash Position</h3>
           <div className="text-3xl font-bold text-accent">
-            ₹{dashboardStats.dailyOverview.cashBalance.toFixed(2)}
+            {formatCurrencyWithSymbol(dashboardStats.dailyOverview.cashBalance)}
           </div>
         </div>
 
@@ -46,7 +47,7 @@ const Dashboard: React.FC = () => {
             <div className="space-y-1 mt-2">
               {dashboardStats.dailyOverview.alerts.map((alert, i) => (
                 <div key={i} className="text-sm text-destructive font-medium">
-                  {alert.name}: ₹{alert.current_balance.toFixed(2)}
+                  {alert.name}: {formatCurrencyWithSymbol(alert.current_balance)}
                 </div>
               ))}
             </div>

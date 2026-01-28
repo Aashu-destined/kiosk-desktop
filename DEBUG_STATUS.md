@@ -242,7 +242,19 @@
     *   Verified handler correctly calculates opening/closing balance.
     *   Result: PASS.
 
-### 17. [AUDIT-003] Data Persistence Gaps (Missing Triggers)
+### 17. [AUDIT-102] Missing Foreign Key Enforcement
+*   **Status:** Resolved
+*   **Issue:** `better-sqlite3` does not enable Foreign Key constraints by default, risking data orphans (e.g., transactions pointing to non-existent groups).
+*   **Source:** `SYSTEM_AUDIT.md` (AUDIT-102)
+*   **Location:** `electron/db/index.ts`
+*   **Findings:**
+    *   Confirmed `db.pragma('foreign_keys = ON');` was missing from database initialization.
+*   **Resolution:**
+    *   Added `db.pragma('foreign_keys = ON');` to `electron/db/index.ts` immediately after connection creation.
+*   **Verification:**
+    *   Code inspection confirms the pragma is executed.
+
+### 18. [AUDIT-003] Data Persistence Gaps (Missing Triggers)
 *   **Status:** Resolved
 *   **Issue:** `accounts` table balance relies solely on `AFTER INSERT` trigger. Updates or deletions of transactions do not propagate to the account balance, causing permanent data drift.
 *   **Source:** `SYSTEM_AUDIT.md`
@@ -387,3 +399,27 @@
 *   **Verification:**
     *   `npm run build` passed successfully.
     *   Code inspection confirms `aria-label` presence on interactive elements.
+
+### 27. [AUDIT-111] Missing Business Logic: Internal Transfers
+*   **Status:** Resolved
+*   **Findings:** Confirmed omission of internal transfer logic.
+*   **Resolution Details:** Added `INTERNAL_TRANSFER` to scenario config and engine logic.
+
+### 28. [AUDIT-101] Floating Point Precision Errors
+*   **Status:** Resolved
+*   **Findings:** Identified floating point risk in financial data.
+*   **Resolution Details:** Migrated DB to INTEGER (cents/paise) and refactored logic/UI for integer math.
+    - Updated `schema.sql` (REAL -> INTEGER).
+    - Implemented migration in `db/index.ts` (x100 multiplier).
+    - Refactored `ScenarioLogic.ts` for integer math.
+    - Added `formatUtils.ts` and updated React components.
+
+### 29. [AUDIT-016] UX Failure: Exposure of Raw Database IDs
+*   **Status:** Resolved
+*   **Findings:** Confirmed users had to manually enter IDs.
+*   **Resolution Details:** Implemented dynamic account dropdowns for Internal Transfer.
+
+### 30. [AUDIT-017] Input Validation Failure (Negative/Infinite Values)
+*   **Status:** Resolved
+*   **Findings:** Confirmed negative values were accepted.
+*   **Resolution Details:** Added strict positive integer validation in ScenarioLogic and transactionHandler.

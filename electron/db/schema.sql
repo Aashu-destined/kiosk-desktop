@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     slug TEXT UNIQUE, -- System identifier (e.g., 'cash', 'od_account')
     name TEXT NOT NULL UNIQUE,
     type TEXT NOT NULL, -- 'ASSET', 'LIABILITY', 'EQUITY', 'REVENUE', 'EXPENSE'
-    current_balance REAL NOT NULL DEFAULT 0.0
+    current_balance INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS transaction_groups (
@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS transactions (
     group_id INTEGER NOT NULL REFERENCES transaction_groups(id) ON DELETE CASCADE,
     account_id INTEGER NOT NULL REFERENCES accounts(id),
     type TEXT NOT NULL, -- 'DEBIT' or 'CREDIT'
-    amount REAL NOT NULL,
+    amount INTEGER NOT NULL,
     description TEXT, -- Specific detail for this leg of the transaction
     timestamp INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
 );
@@ -28,10 +28,10 @@ CREATE TABLE IF NOT EXISTS transactions (
 CREATE TABLE IF NOT EXISTS daily_records (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     date TEXT NOT NULL UNIQUE,
-    cash_opening REAL NOT NULL DEFAULT 0.0,
-    cash_closing_calculated REAL,
-    cash_physical_count REAL,
-    difference REAL,
+    cash_opening INTEGER NOT NULL DEFAULT 0,
+    cash_closing_calculated INTEGER,
+    cash_physical_count INTEGER,
+    difference INTEGER,
     status TEXT NOT NULL DEFAULT 'OPEN', -- 'OPEN', 'CLOSED'
     notes TEXT
 );

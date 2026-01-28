@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ScenarioType, ScenarioParams } from '../engines/ScenarioLogic';
 import { SCENARIO_CONFIG } from '../config/scenarioConfig';
+import { useData } from '../contexts/DataContext';
 
 interface ScenarioFormProps {
   scenario: ScenarioType;
@@ -36,6 +37,7 @@ const InputField: React.FC<InputFieldProps> = ({ label, name, type = 'number', p
 );
 
 export const ScenarioForm: React.FC<ScenarioFormProps> = ({ scenario, onSubmit, onCancel, isLoading }) => {
+  const { accounts } = useData();
   const [formData, setFormData] = useState<ScenarioParams>({
     amount: undefined,
     total_settled: undefined,
@@ -43,11 +45,13 @@ export const ScenarioForm: React.FC<ScenarioFormProps> = ({ scenario, onSubmit, 
     digital_in: undefined,
     cash_out: undefined,
     digital_out: undefined,
+    fromAccountId: undefined,
+    toAccountId: undefined,
     customerName: '',
     description: '',
   });
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -65,18 +69,42 @@ export const ScenarioForm: React.FC<ScenarioFormProps> = ({ scenario, onSubmit, 
     const config = SCENARIO_CONFIG[scenario];
     if (!config) return null;
 
-    const fields = config.fields.map((field) => (
-      <InputField
-        key={field.name}
-        label={field.label}
-        name={field.name}
-        required={field.required !== false}
-        type={field.type || 'number'}
-        placeholder={field.placeholder}
-        value={formData[field.name as keyof ScenarioParams]}
-        onChange={handleChange}
-      />
-    ));
+    const fields = config.fields.map((field) => {
+      if (field.type === 'select') {
+        return (
+          <div key={field.name} className="mb-4">
+            <label htmlFor={field.name} className="block text-sm font-medium text-slate-300 mb-1">{field.label}</label>
+            <select
+              id={field.name}
+              name={field.name}
+              value={formData[field.name as keyof ScenarioParams] || ''}
+              onChange={handleChange}
+              className="input-celestial"
+              required={field.required !== false}
+            >
+              <option value="">Select Account</option>
+              {accounts.map(account => (
+                <option key={account.id} value={account.id}>
+                  {account.name} ({account.type})
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      }
+      return (
+        <InputField
+          key={field.name}
+          label={field.label}
+          name={field.name}
+          required={field.required !== false}
+          type={field.type || 'number'}
+          placeholder={field.placeholder}
+          value={formData[field.name as keyof ScenarioParams]}
+          onChange={handleChange}
+        />
+      );
+    });
 
     if (config.layout === 'grid') {
       return (

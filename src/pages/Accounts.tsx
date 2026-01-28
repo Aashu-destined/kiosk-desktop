@@ -3,6 +3,7 @@ import { Account } from '../types/ipc';
 import { Plus, Edit2, X, Check } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useToast } from '../contexts/ToastContext';
+import { formatCurrency, formatCurrencyWithSymbol, parseCurrencyToInt } from '../utils/formatUtils';
 
 interface AccountsProps {
   autoOpenAdd?: boolean;
@@ -34,7 +35,7 @@ const Accounts: React.FC<AccountsProps> = ({ autoOpenAdd, onAutoOpenHandled }) =
       const result = await window.ipcRenderer.invoke('db:add-account', {
         name: newAccountName,
         type: newAccountType,
-        initialBalance: Number(newAccountBalance)
+        initialBalance: parseCurrencyToInt(newAccountBalance)
       });
       
       if (result.success) {
@@ -213,7 +214,7 @@ const Accounts: React.FC<AccountsProps> = ({ autoOpenAdd, onAutoOpenHandled }) =
             <div className="mt-4 pt-4 border-t border-border">
               <p className="text-sm text-muted">Current Balance</p>
               <p className={`text-2xl font-bold ${account.current_balance >= 0 ? 'text-success' : 'text-destructive'}`}>
-                ₹{account.current_balance.toFixed(2)}
+                {formatCurrencyWithSymbol(account.current_balance)}
               </p>
             </div>
           </div>

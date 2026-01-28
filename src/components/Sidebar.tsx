@@ -11,6 +11,7 @@ import {
 import { DailyRecord } from '../types/ipc';
 import { useData } from '../contexts/DataContext';
 import { useToast } from '../contexts/ToastContext';
+import { formatCurrency, formatCurrencyWithSymbol, parseCurrencyToInt } from '../utils/formatUtils';
 
 interface SidebarProps {
   activeTab: string;
@@ -51,7 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount
         setCalcClosing(response.data.calculated.closingBalance);
         setDailyRecord(response.data.record);
         if (response.data.record) {
-          setPhysicalCount(response.data.record.cash_physical_count.toString());
+          setPhysicalCount((response.data.record.cash_physical_count / 100).toString());
           setReconciliationStatus(response.data.record.status);
         } else {
           setPhysicalCount('');
@@ -66,7 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount
   };
 
   const handleSaveReconciliation = async () => {
-    const pCount = parseFloat(physicalCount) || 0;
+    const pCount = parseCurrencyToInt(physicalCount);
     const diff = pCount - calcClosing;
     
     try {
@@ -77,7 +78,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount
         physicalCount: pCount,
         difference: diff,
         status: diff === 0 ? 'CLOSED' : 'OPEN',
-        notes: diff !== 0 ? `Variance: ${diff}` : 'Balanced'
+        notes: diff !== 0 ? `Variance: ${formatCurrency(diff)}` : 'Balanced'
       });
 
       if (result.success) {
@@ -92,7 +93,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount
     }
   };
 
-  const variance = (parseFloat(physicalCount) || 0) - calcClosing;
+  const variance = parseCurrencyToInt(physicalCount) - calcClosing;
 
   const tabs = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -153,7 +154,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount
               accounts.map(acc => (
                 <div key={acc.id} className="p-2 bg-app/50 rounded border border-border flex justify-between items-center group hover:border-accent/30 transition-colors">
                   <span className="text-sm text-primary group-hover:text-primary truncate max-w-[120px]" title={acc.name}>{acc.name}</span>
-                  <span className="text-sm font-mono font-bold text-accent">₹{acc.current_balance.toFixed(0)}</span>
+                  <span className="text-sm font-mono font-bold text-accent">{formatCurrencyWithSymbol(acc.current_balance)}</span>
                 </div>
               ))
             )}
@@ -177,11 +178,11 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount
           <div className="space-y-1 text-xs text-muted mb-3">
             <div className="flex justify-between">
               <span>Opening:</span>
-              <span className="font-mono text-primary">₹{calcOpening.toFixed(2)}</span>
+              <span className="font-mono text-primary">{formatCurrencyWithSymbol(calcOpening)}</span>
             </div>
             <div className="flex justify-between">
               <span>Expected Closing:</span>
-              <span className="font-mono font-bold text-primary">₹{calcClosing.toFixed(2)}</span>
+              <span className="font-mono font-bold text-primary">{formatCurrencyWithSymbol(calcClosing)}</span>
             </div>
           </div>
           
@@ -198,9 +199,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount
             />
           </div>
 
-          <div className={`flex justify-between text-sm font-bold mb-1 ${Math.abs(variance) < 0.01 ? 'text-success' : 'text-destructive'}`}>
+          <div className={`flex justify-between text-sm font-bold mb-1 ${Math.abs(variance) < 1 ? 'text-success' : 'text-destructive'}`}>
             <span>Variance:</span>
-            <span>₹{variance.toFixed(2)}</span>
+            <span>{formatCurrencyWithSymbol(variance)}</span>
           </div>
           
           <div className="text-xs text-muted mb-3 text-right">
@@ -218,7 +219,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab, onAddAccount
         <div className="flex-1 flex flex-col items-center justify-end pb-4 space-y-4">
            {/* Collapsed Status Indicator */}
            <div
-             className={`w-3 h-3 rounded-full ${Math.abs(variance) < 0.01 ? 'bg-success' : 'bg-destructive'}`}
+             className={`w-3 h-3 rounded-full ${Math.abs(variance) < 1 ? 'bg-success' : 'bg-destructive'}`}
              title={`Reconciliation Status: ${reconciliationStatus || 'PENDING'}`}
            />
         </div>

@@ -45,6 +45,12 @@ const scenarios: Array<{ id: ScenarioType; label: string; icon: React.ReactNode;
     icon: <Printer className="w-6 h-6" />,
     color: 'bg-orange-500/10 text-orange-400 border-orange-500/30 hover:bg-orange-500/20 hover:border-orange-400'
   },
+  {
+    id: 'INTERNAL_TRANSFER',
+    label: 'Internal Transfer',
+    icon: <Layers className="w-6 h-6" />,
+    color: 'bg-blue-500/10 text-blue-400 border-blue-500/30 hover:bg-blue-500/20 hover:border-blue-400'
+  },
 ];
 
 export const ScenarioSelector: React.FC<ScenarioSelectorProps> = ({ onSelect, selected }) => {

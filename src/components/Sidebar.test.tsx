@@ -6,8 +6,8 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 vi.mock('../contexts/DataContext', () => ({
   useData: () => ({
     accounts: [
-      { id: 1, name: 'Test Cash', current_balance: 1000.50, type: 'Asset' },
-      { id: 2, name: 'Test Bank', current_balance: 5000.00, type: 'Asset' },
+      { id: 1, name: 'Test Cash', current_balance: 100050, type: 'Asset' },
+      { id: 2, name: 'Test Bank', current_balance: 500000, type: 'Asset' },
     ],
     isLoading: false,
     refreshData: vi.fn(),
@@ -26,7 +26,7 @@ describe('Sidebar', () => {
     // though our setup.ts should handle it.
     if (window.ipcRenderer) {
         (window.ipcRenderer.invoke as any).mockResolvedValue({
-        calculated: { openingBalance: 100, closingBalance: 200 },
+        calculated: { openingBalance: 10000, closingBalance: 20000 },
         record: null,
         });
     }
