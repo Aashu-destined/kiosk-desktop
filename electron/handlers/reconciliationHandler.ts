@@ -8,6 +8,7 @@ interface GetDailyRecordArgs {
 
 interface SaveDailyRecordArgs {
     date: string;
+    accountId?: number; // Fix AUDIT-001: Support specific account
     openingBalance: number;
     closingBalance: number;
     physicalCount: number;
@@ -38,13 +39,13 @@ export const handleGetDailyRecord = async (_event: any, { date, accountId }: Get
             }
 
             // 2. Try to get existing record
-            const record = db.prepare('SELECT * FROM daily_records WHERE date = ?').get(date) as any;
+            // Fix AUDIT-001: Use account_id in query
+            const record = db.prepare('SELECT * FROM daily_records WHERE date = ? AND account_id = ?').get(date, targetAccountId) as any;
 
             // 3. Calculate Live Balances (Expected)
-            // We need to calculate what the balance WAS at the start of the requested date, and end of requested date.
-            // Formula: Balance_At_Time_T = Current_Balance - Sum(Transactions_After_Time_T)
-
-            // Get Current Balance
+            // ... (rest of calculation uses targetAccountId, so it's fine)
+            // ...
+            
             const account = db.prepare('SELECT current_balance, type FROM accounts WHERE id = ?').get(targetAccountId) as { current_balance: number, type: string };
             const currentBalance = account.current_balance;
 
@@ -110,20 +111,37 @@ export const handleGetDailyRecord = async (_event: any, { date, accountId }: Get
 
 export const handleSaveDailyRecord = async (_event: any, args: SaveDailyRecordArgs) => {
     return handleIpcRequest(() => {
-        const { date, openingBalance, closingBalance, physicalCount, difference, status, notes } = args;
-        const existing = db.prepare('SELECT id FROM daily_records WHERE date = ?').get(date);
+        const { date, accountId, openingBalance, closingBalance, physicalCount, difference, status, notes } = args;
+        
+        // Fix AUDIT-001: Determine Account ID
+        let targetAccountId = accountId;
+        if (!targetAccountId) {
+            const cashAccount = db.prepare("SELECT id FROM accounts WHERE slug = 'cash'").get() as { id: number } | undefined;
+            if (cashAccount) {
+                targetAccountId = cashAccount.id;
+            } else {
+                const firstAccount = db.prepare("SELECT id FROM accounts LIMIT 1").get() as { id: number } | undefined;
+                targetAccountId = firstAccount?.id;
+            }
+        }
+
+        if (!targetAccountId) {
+            throw new Error("No account identified for reconciliation.");
+        }
+
+        const existing = db.prepare('SELECT id FROM daily_records WHERE date = ? AND account_id = ?').get(date, targetAccountId);
 
         if (existing) {
             db.prepare(`
                 UPDATE daily_records
                 SET cash_opening = ?, cash_closing_calculated = ?, cash_physical_count = ?, difference = ?, status = ?, notes = ?
-                WHERE date = ?
-            `).run(openingBalance, closingBalance, physicalCount, difference, status, notes, date);
+                WHERE date = ? AND account_id = ?
+            `).run(openingBalance, closingBalance, physicalCount, difference, status, notes, date, targetAccountId);
         } else {
             db.prepare(`
-                INSERT INTO daily_records (date, cash_opening, cash_closing_calculated, cash_physical_count, difference, status, notes)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            `).run(date, openingBalance, closingBalance, physicalCount, difference, status, notes);
+                INSERT INTO daily_records (date, account_id, cash_opening, cash_closing_calculated, cash_physical_count, difference, status, notes)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `).run(date, targetAccountId, openingBalance, closingBalance, physicalCount, difference, status, notes);
         }
 
         // Return void/undefined for success, wrapper will handle { success: true, data: undefined }

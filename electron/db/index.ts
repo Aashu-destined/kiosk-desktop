@@ -33,6 +33,55 @@ try {
     throw error;
 }
 
+// Migration AUDIT-001: Add account_id to daily_records for multi-account reconciliation
+try {
+    const tableInfo = db.prepare("PRAGMA table_info(daily_records)").all() as any[];
+    const hasAccountId = tableInfo.some(col => col.name === 'account_id');
+
+    if (!hasAccountId) {
+        console.log('Migrating daily_records to support multi-account reconciliation...');
+        
+        db.transaction(() => {
+            // 1. Get Cash Account ID for backfilling
+            const cashAccount = db.prepare("SELECT id FROM accounts WHERE slug = 'cash'").get() as { id: number } | undefined;
+            const cashId = cashAccount ? cashAccount.id : 1; // Fallback to 1 if not found (shouldn't happen)
+
+            // 2. Rename existing table
+            db.prepare("ALTER TABLE daily_records RENAME TO daily_records_old").run();
+
+            // 3. Create new table with account_id and composite unique constraint
+            db.prepare(`
+                CREATE TABLE daily_records (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    account_id INTEGER REFERENCES accounts(id) ON DELETE CASCADE,
+                    date TEXT NOT NULL,
+                    cash_opening INTEGER NOT NULL DEFAULT 0,
+                    cash_closing_calculated INTEGER,
+                    cash_physical_count INTEGER,
+                    difference INTEGER,
+                    status TEXT NOT NULL DEFAULT 'OPEN',
+                    notes TEXT,
+                    UNIQUE(date, account_id)
+                )
+            `).run();
+
+            // 4. Migrate data
+            db.prepare(`
+                INSERT INTO daily_records (id, account_id, date, cash_opening, cash_closing_calculated, cash_physical_count, difference, status, notes)
+                SELECT id, ?, date, cash_opening, cash_closing_calculated, cash_physical_count, difference, status, notes
+                FROM daily_records_old
+            `).run(cashId);
+
+            // 5. Drop old table
+            db.prepare("DROP TABLE daily_records_old").run();
+        })();
+        
+        console.log('Migration (AUDIT-001) successful.');
+    }
+} catch (error) {
+    console.error('Migration (AUDIT-001) failed:', error);
+}
+
 // Migration AUDIT-101: Convert REAL to INTEGER (cents/paise)
 try {
     const dbVersion = db.prepare("SELECT value FROM settings WHERE key = 'db_version'").get() as { value: string } | undefined;

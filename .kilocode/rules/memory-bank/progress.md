@@ -1,7 +1,7 @@
 # Progress Status
 
 ## High-Level Status
-The application is in **Late Alpha**. The core "Happy Path" features are built, but critical logical bugs and audit findings prevent a Beta release. The UI is 90% complete, while the Backend requires significant remediation.
+The application is in **Late Alpha**. The core "Happy Path" features are built and the "System Audit" remediation (Phase 1 & 2) is largely complete. The focus is now on hardening input validation and ensuring data integrity for edge cases before Beta release.
 
 ## Completed Features
 - [x] **Project Skeleton:** Electron + Vite + React + TypeScript setup.
@@ -10,12 +10,15 @@ The application is in **Late Alpha**. The core "Happy Path" features are built, 
 - [x] **IPC Layer:** Full communication bridge between Frontend and Backend.
 - [x] **UI Pages:** Dashboard, Accounts, Transactions, Settings, Reconciliation.
 - [x] **Scenario Engine:** Frontend logic for calculating ledger entries.
+- [x] **Audit Remediation (Critical):** Fixed schema mismatches in Reconciliation (AUDIT-001).
+- [x] **Audit Remediation (Logic):** Corrected Liability accounting (AUDIT-002).
+- [x] **Audit Remediation (UX):** Fixed animation jitter (AUDIT-006) and replaced alerts with Toasts (AUDIT-007).
+- [x] **Audit Remediation (Integrity):** Migrated to Integer Math (AUDIT-101) and added Foreign Keys (AUDIT-102).
 
 ## In Progress / Active Issues
-- [ ] **Audit Remediation (Critical):** Fixing schema mismatches in Reconciliation.
-- [ ] **Audit Remediation (Logic):** Correcting Liability accounting (Debit vs Credit).
-- [ ] **Audit Remediation (UX):** Fixing animation jitter and blocking alerts.
-- [ ] **Testing:** Expanding unit and integration test coverage.
+- [ ] **Input Hardening (AUDIT-017):** Implementing strict positive integer validation for all inputs, especially Internal Transfers.
+- [ ] **Automated Assurance:** Creating a dedicated test suite for Internal Transfers and edge cases.
+- [ ] **User Verification (AUDIT-016):** Verifying the usability and safety of the Internal Transfer UI.
 
 ## Planned / Backlog
 - [ ] **Advanced Reporting:** Export to Excel/PDF.
@@ -24,6 +27,4 @@ The application is in **Late Alpha**. The core "Happy Path" features are built, 
 - [ ] **Automated Updates:** GitHub Actions workflow for release building.
 
 ## Known Issues
-- **Reconciliation Crash:** `source_account_id` column missing in DB schema.
-- **Accounting Inversion:** OD Account balance increases on Debit (should be Credit).
-- **Animation Jitter:** Starfield background flickers due to random re-renders.
+- **Input Validation:** "Internal Transfer" feature allows negative/zero inputs (AUDIT-017).

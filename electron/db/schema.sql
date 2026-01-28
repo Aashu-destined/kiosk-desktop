@@ -27,13 +27,15 @@ CREATE TABLE IF NOT EXISTS transactions (
 
 CREATE TABLE IF NOT EXISTS daily_records (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    date TEXT NOT NULL UNIQUE,
+    account_id INTEGER REFERENCES accounts(id) ON DELETE CASCADE,
+    date TEXT NOT NULL,
     cash_opening INTEGER NOT NULL DEFAULT 0,
     cash_closing_calculated INTEGER,
     cash_physical_count INTEGER,
     difference INTEGER,
     status TEXT NOT NULL DEFAULT 'OPEN', -- 'OPEN', 'CLOSED'
-    notes TEXT
+    notes TEXT,
+    UNIQUE(date, account_id)
 );
 
 CREATE TABLE IF NOT EXISTS settings (

@@ -243,11 +243,17 @@ export const generateLedgerEntries = (
         
         case 'INTERNAL_TRANSFER':
             // Fix AUDIT-111: Implement Internal Transfer
+            // Fix AUDIT-017: Input Hardening
+            if (params.amount === undefined || params.amount <= 0) {
+                throw new Error("Transfer amount must be a positive number");
+            }
+
             const transferAmount = toInt(params.amount);
             const fromId = params.fromAccountId;
             const toId = params.toAccountId;
 
             if (!fromId || !toId) throw new Error("Missing accounts for transfer");
+            if (fromId === toId) throw new Error("Cannot transfer to the same account");
 
             entries = [
                 { account_id: fromId, type: 'CREDIT', amount: transferAmount, description: 'Transfer Out' },

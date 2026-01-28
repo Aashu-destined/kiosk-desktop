@@ -257,6 +257,27 @@
   }
 }
 
+@keyframes comet-cycle {
+  0% {
+    transform: translateX(0) translateY(0) rotate(-45deg);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  20% {
+    transform: translateX(-300px) translateY(300px) rotate(-45deg);
+    opacity: 0;
+  }
+  21% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-300px) translateY(300px) rotate(-45deg);
+  }
+}
+
 @keyframes aurora {
   0% { background-position: 0% 0%; }
   100% { background-position: 100% 100%; }

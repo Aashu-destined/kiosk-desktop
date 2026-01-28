@@ -28,9 +28,10 @@ The Scenario Engine handles these multi-leg transactions automatically based on 
     *   Difference is Profit.
 
 ### 3. Money Transfers (Internal & External)
-*   **Via Savings:** Customer pays via UPI to Savings; Owner transfers out from Savings.
-*   **Via Cash:** Customer gives Cash; Owner transfers out from Savings.
-*   **Logic:** Tracks the movement of funds between Cash, Savings, and External entities, capturing the profit margin (commission).
+*   **Context:** Moving funds between own accounts (e.g., Bank to Cash) or sending to others.
+*   **Flow:**
+    *   **Internal:** Debit Destination Account (Money In), Credit Source Account (Money Out).
+    *   **External:** Tracks the movement of funds between Cash, Savings, and External entities, capturing the profit margin (commission).
 
 ### 4. Service Sales
 *   **Context:** General sales like Printing or Xerox.

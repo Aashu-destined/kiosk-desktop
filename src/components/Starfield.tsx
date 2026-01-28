@@ -1,33 +1,19 @@
-import React, { useEffect, useState } from 'react';
-
-interface Comet {
-  id: number;
-  top: number;
-  left: number;
-}
+import React, { useMemo } from 'react';
 
 const Starfield: React.FC = () => {
-  const [comets, setComets] = useState<Comet[]>([]);
-
-  useEffect(() => {
-    // Generate random comets periodically
-    const interval = setInterval(() => {
-      const id = Date.now();
-      const newComet: Comet = {
-        id,
-        top: Math.random() * 40,
-        left: Math.random() * 60 + 40,
-      };
-
-      setComets(prev => [...prev, newComet]);
-      
-      // Cleanup comet after animation
-      setTimeout(() => {
-        setComets(prev => prev.filter(c => c.id !== id));
-      }, 4000); // Life of a comet
-    }, 5000 + Math.random() * 5000); // Random interval 5-10s
-
-    return () => clearInterval(interval);
+  // Generate static comets once on mount to avoid re-renders
+  // This resolves AUDIT-006 (Animation Jitter)
+  const comets = useMemo(() => {
+    return Array.from({ length: 15 }).map((_, i) => ({
+      id: i,
+      // Spread starting positions across the top/right
+      top: Math.random() * 60, // Top 60%
+      left: 20 + Math.random() * 80, // Right 80%
+      // Random delay to desynchronize their loops
+      // Random duration to vary speed
+      delay: Math.random() * 20, 
+      duration: 10 + Math.random() * 15 // 10-25s loop
+    }));
   }, []);
 
   return (
@@ -36,15 +22,18 @@ const Starfield: React.FC = () => {
       <div className="absolute inset-0 stars-small animate-pulse-slow opacity-60"></div>
       <div className="absolute inset-0 stars-medium animate-pulse-slower opacity-80"></div>
       
-      {/* Falling Comets */}
+      {/* CSS-driven Comets (No JS Re-renders) */}
       {comets.map(comet => (
         <div
           key={comet.id}
-          className="absolute w-[2px] h-[2px] bg-white rounded-full animate-comet"
+          className="absolute w-[2px] h-[2px] bg-white rounded-full opacity-0"
           style={{
             top: `${comet.top}%`,
-            left: `${comet.left}%`, // Start mostly from top right
+            left: `${comet.left}%`,
             boxShadow: '0 0 10px 2px rgba(255, 255, 255, 0.4)',
+            // Use the new keyframe defined in index.css
+            animation: `comet-cycle ${comet.duration}s linear infinite`,
+            animationDelay: `${comet.delay}s`
           }}
         >
           <div className="absolute top-0 right-0 w-[100px] h-[1px] bg-gradient-to-l from-transparent to-white opacity-50 transform -rotate-45 origin-right translate-x-1"></div>

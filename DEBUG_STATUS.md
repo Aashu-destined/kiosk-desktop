@@ -362,6 +362,16 @@
 ### 24. [AUDIT-013] Extensive Theming Violations
 *   **Status:** Resolved
 *   **Issue:** Hardcoded color values (hex, rgb) or Tailwind utility classes bypass the CSS variable theme system.
+*   **Source:** `SYSTEM_AUDIT.md` (AUDIT-013)
+*   **Location:** `src/pages/Settings.tsx`, `src/pages/Accounts.tsx`, `src/pages/Dashboard.tsx`, `src/components/ThemeToggle.tsx`, `src/contexts/ToastContext.tsx`, `src/components/Sidebar.tsx`.
+*   **Resolution:**
+    *   Defined new semantic colors `success` and `destructive` in `src/index.css` and `tailwind.config.js`.
+    *   Replaced hardcoded `bg-blue-600`, `text-green-600`, `text-red-500` etc. with `bg-accent`, `text-success`, `text-destructive` across all identified files.
+    *   Updated `ThemeToggle.tsx` to use semantic borders and backgrounds.
+    *   Standardized alert and toast colors to use semantic variables.
+*   **Verification:**
+    *   `npm run build` passed successfully.
+    *   Code review confirms usage of semantic tokens (e.g., `text-success`, `bg-accent`) instead of raw colors.
 
 ### 25. [AUDIT-014] Non-Responsive Layout (Fixed Sidebar)
 *   **Status:** Resolved
@@ -374,16 +384,6 @@
     *   Added tooltips (via `title` attribute) for better UX in collapsed mode.
 *   **Verification:**
     *   Manual verification of code logic ensures state toggles width classes correctly.
-*   **Source:** `SYSTEM_AUDIT.md` (AUDIT-013)
-*   **Location:** `src/pages/Settings.tsx`, `src/pages/Accounts.tsx`, `src/pages/Dashboard.tsx`, `src/components/ThemeToggle.tsx`, `src/contexts/ToastContext.tsx`, `src/components/Sidebar.tsx`.
-*   **Resolution:**
-    *   Defined new semantic colors `success` and `destructive` in `src/index.css` and `tailwind.config.js`.
-    *   Replaced hardcoded `bg-blue-600`, `text-green-600`, `text-red-500` etc. with `bg-accent`, `text-success`, `text-destructive` across all identified files.
-    *   Updated `ThemeToggle.tsx` to use semantic borders and backgrounds.
-    *   Standardized alert and toast colors to use semantic variables.
-*   **Verification:**
-    *   `npm run build` passed successfully.
-    *   Code review confirms usage of semantic tokens (e.g., `text-success`, `bg-accent`) instead of raw colors.
 
 ### 26. [AUDIT-015] Accessibility Gaps (Icon-Only Buttons)
 *   **Status:** Resolved
@@ -419,7 +419,23 @@
 *   **Findings:** Confirmed users had to manually enter IDs.
 *   **Resolution Details:** Implemented dynamic account dropdowns for Internal Transfer.
 
-### 30. [AUDIT-017] Input Validation Failure (Negative/Infinite Values)
+### 31. [AUDIT-001] Reconciliation Schema Mismatch (Phase 2)
+*   **Status:** Verified
+*   **Findings:** Code inspection of `electron/db/schema.sql` and `reconciliationHandler.ts` confirms the fix (account_id column and constraints) is present.
+*   **Resolution Details:** Verified existing fix.
+
+### 32. [AUDIT-002] Accounting Logic Inversion (Phase 2)
+*   **Status:** Verified
+*   **Findings:** Code inspection of `electron/db/index.ts` confirms OD Account is 'ASSET', and logic correctly Debits (Increases) it on settlement.
+*   **Resolution Details:** Verified existing fix.
+
+### 33. [AUDIT-006] Animation Jitter & Performance
 *   **Status:** Resolved
-*   **Findings:** Confirmed negative values were accepted.
-*   **Resolution Details:** Added strict positive integer validation in ScenarioLogic and transactionHandler.
+*   **Issue:** `Starfield.tsx` uses state-driven animation loop causing re-renders.
+*   **Resolution:** Refactored `Starfield.tsx` to use `useMemo` for static generation and CSS-driven `animation` loop (via `comet-cycle` keyframes added to `index.css`). Eliminates JS runtime overhead.
+
+### 34. [AUDIT-017] Input Hardening (Internal Transfer)
+*   **Status:** Resolved
+*   **Issue:** `INTERNAL_TRANSFER` scenario in `ScenarioLogic.ts` lacks validation for negative/zero amounts.
+*   **Resolution:** Added strict validation checks (`amount <= 0`) to `INTERNAL_TRANSFER` case in `src/engines/ScenarioLogic.ts`.
+

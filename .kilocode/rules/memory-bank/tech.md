@@ -15,6 +15,10 @@
 *   **Database:** SQLite (via `better-sqlite3`)
 *   **Language:** TypeScript
 
+### Testing
+*   **Unit Testing:** Vitest, React Testing Library
+*   **Integration Testing:** Custom scripts (`scripts/integration_test_flow.js`)
+
 ## Development Environment
 *   **OS:** Windows 11
 *   **IDE:** VSCode
