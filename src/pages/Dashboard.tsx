@@ -67,7 +67,7 @@ const Dashboard: React.FC = () => {
             ) : (
                 normalizeChartData(dashboardStats.trendAnalysis).map((item, idx) => (
                     <div key={idx} className="flex flex-col items-center flex-1 group relative">
-                        <div className="w-full bg-blue-100 rounded-t hover:bg-blue-200 transition-all relative" style={{ height: `${item.heightPct}%` }}>
+                        <div className="w-full bg-accent/20 rounded-t hover:bg-accent/40 transition-all relative" style={{ height: `${item.heightPct}%` }}>
                             <div className="opacity-0 group-hover:opacity-100 absolute -top-8 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs py-1 px-2 rounded whitespace-nowrap z-10">
                               ₹{item.profit.toFixed(2)}
                             </div>

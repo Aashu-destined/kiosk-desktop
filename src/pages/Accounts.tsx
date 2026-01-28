@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Account } from '../types/ipc';
 import { Plus, Edit2, X, Check } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
+import { useToast } from '../contexts/ToastContext';
 
 interface AccountsProps {
   autoOpenAdd?: boolean;
@@ -10,6 +11,7 @@ interface AccountsProps {
 
 const Accounts: React.FC<AccountsProps> = ({ autoOpenAdd, onAutoOpenHandled }) => {
   const { accounts, refreshData } = useData();
+  const { showToast } = useToast();
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editName, setEditName] = useState('');
@@ -29,18 +31,25 @@ const Accounts: React.FC<AccountsProps> = ({ autoOpenAdd, onAutoOpenHandled }) =
   const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await window.ipcRenderer.invoke('db:add-account', {
+      const result = await window.ipcRenderer.invoke('db:add-account', {
         name: newAccountName,
         type: newAccountType,
         initialBalance: Number(newAccountBalance)
       });
-      setIsAdding(false);
-      setNewAccountName('');
-      setNewAccountType('cash');
-      setNewAccountBalance(0);
-      refreshData();
+      
+      if (result.success) {
+        setIsAdding(false);
+        setNewAccountName('');
+        setNewAccountType('cash');
+        setNewAccountBalance(0);
+        refreshData();
+        showToast('Account added successfully', 'success');
+      } else {
+        showToast(result.error?.message || 'Failed to add account', 'error');
+      }
     } catch (error) {
       console.error('Failed to add account:', error);
+      showToast('Failed to add account', 'error');
     }
   };
 
@@ -56,15 +65,22 @@ const Accounts: React.FC<AccountsProps> = ({ autoOpenAdd, onAutoOpenHandled }) =
 
   const saveEditing = async (id: number) => {
     try {
-      await window.ipcRenderer.invoke('db:update-account', {
+      const result = await window.ipcRenderer.invoke('db:update-account', {
         id,
         name: editName
       });
-      setEditingId(null);
-      setEditName('');
-      refreshData();
+      
+      if (result.success) {
+        setEditingId(null);
+        setEditName('');
+        refreshData();
+        showToast('Account updated successfully', 'success');
+      } else {
+        showToast(result.error?.message || 'Failed to update account', 'error');
+      }
     } catch (error) {
       console.error('Failed to update account:', error);
+      showToast('Failed to update account', 'error');
     }
   };
 

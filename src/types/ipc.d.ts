@@ -1,3 +1,7 @@
+import { IpcResponse } from './ipcResponse';
+
+export * from './ipcResponse';
+
 export interface Account {
   id: number;
   name: string;
@@ -76,33 +80,33 @@ export interface TransactionGroupsResponse {
 
 export interface IpcRenderer {
   // Transactions
-  invoke(channel: 'db:get-transaction-groups', args?: { limit?: number; offset?: number; startDate?: string; endDate?: string }): Promise<TransactionGroupsResponse>;
-  invoke(channel: 'db:add-transaction-group', args: TransactionGroupInput): Promise<{ success: boolean; groupId: number }>;
+  invoke(channel: 'db:get-transaction-groups', args?: { limit?: number; offset?: number; startDate?: string; endDate?: string }): Promise<IpcResponse<TransactionGroupsResponse>>;
+  invoke(channel: 'db:add-transaction-group', args: TransactionGroupInput): Promise<IpcResponse<{ groupId: number }>>;
 
   // Accounts
-  invoke(channel: 'db:get-accounts'): Promise<Account[]>;
-  invoke(channel: 'db:add-account', args: { name: string; type: string; initialBalance: number }): Promise<Account>;
-  invoke(channel: 'db:update-account', args: { id: number; name: string }): Promise<Account>;
+  invoke(channel: 'db:get-accounts'): Promise<IpcResponse<Account[]>>;
+  invoke(channel: 'db:add-account', args: { name: string; type: string; initialBalance: number }): Promise<IpcResponse<Account>>;
+  invoke(channel: 'db:update-account', args: { id: number; name: string }): Promise<IpcResponse<Account>>;
 
   // Settings
-  invoke(channel: 'db:get-settings'): Promise<Record<string, any>>;
-  invoke(channel: 'db:save-setting', args: { key: string; value: string }): Promise<boolean>;
+  invoke(channel: 'db:get-settings'): Promise<IpcResponse<Record<string, any>>>;
+  invoke(channel: 'db:save-setting', args: { key: string; value: string }): Promise<IpcResponse<boolean>>;
 
   // Reconciliation
-  invoke(channel: 'db:get-daily-record', args: { date: string }): Promise<DailyRecordResponse>;
+  invoke(channel: 'db:get-daily-record', args: { date: string }): Promise<IpcResponse<DailyRecordResponse>>;
   invoke(channel: 'db:save-daily-record', args: {
     date: string;
     cash_opening: number;
     cash_physical_count: number;
     notes?: string;
     status: 'OPEN' | 'CLOSED';
-  }): Promise<{ success: boolean }>;
+  }): Promise<IpcResponse<void>>;
 
   // Dashboard
-  invoke(channel: 'db:get-dashboard-stats'): Promise<DashboardStats>;
+  invoke(channel: 'db:get-dashboard-stats'): Promise<IpcResponse<DashboardStats>>;
   
   // Example IPC
-  invoke(channel: 'app:get-version'): Promise<{ success: boolean; version?: string; error?: string }>;
+  invoke(channel: 'app:get-version'): Promise<IpcResponse<{ version: string }>>;
 
   // Fallback for other channels
   invoke(channel: string, ...args: any[]): Promise<any>;

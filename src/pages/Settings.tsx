@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Save, Plus, Trash2 } from 'lucide-react';
 import ThemeToggle from '../components/ThemeToggle';
+import { useToast } from '../contexts/ToastContext';
 
 interface TransactionType {
   id: string;
@@ -9,6 +10,7 @@ interface TransactionType {
 }
 
 const Settings: React.FC = () => {
+  const { showToast } = useToast();
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
   const [isDirty, setIsDirty] = useState(false);
   const [newTypeLabel, setNewTypeLabel] = useState('');
@@ -20,15 +22,20 @@ const Settings: React.FC = () => {
 
   const loadSettings = async () => {
     try {
-      const settings = await window.ipcRenderer.invoke('db:get-settings');
-      if (settings.transaction_types) {
-        setTransactionTypes(JSON.parse(settings.transaction_types));
+      const response = await window.ipcRenderer.invoke('db:get-settings');
+      if (response.success && response.data) {
+        const settings = response.data;
+        if (settings.transaction_types) {
+          setTransactionTypes(JSON.parse(settings.transaction_types));
+        } else {
+          // Default types if none exist
+          setTransactionTypes([
+            { id: 'cash_in', label: 'Cash In', defaultFee: 0 },
+            { id: 'cash_out', label: 'Cash Out', defaultFee: 0 },
+          ]);
+        }
       } else {
-        // Default types if none exist
-        setTransactionTypes([
-          { id: 'cash_in', label: 'Cash In', defaultFee: 0 },
-          { id: 'cash_out', label: 'Cash Out', defaultFee: 0 },
-        ]);
+         console.error('Failed to load settings:', response.error);
       }
     } catch (error) {
       console.error('Failed to load settings:', error);
@@ -37,14 +44,20 @@ const Settings: React.FC = () => {
 
   const saveSettings = async () => {
     try {
-      await window.ipcRenderer.invoke('db:save-setting', {
+      const result = await window.ipcRenderer.invoke('db:save-setting', {
         key: 'transaction_types',
         value: JSON.stringify(transactionTypes)
       });
-      setIsDirty(false);
-      // Show success message or notification if needed
+      
+      if (result.success) {
+        setIsDirty(false);
+        showToast('Settings saved successfully', 'success');
+      } else {
+        showToast(result.error?.message || 'Failed to save settings', 'error');
+      }
     } catch (error) {
       console.error('Failed to save settings:', error);
+      showToast('Failed to save settings', 'error');
     }
   };
 

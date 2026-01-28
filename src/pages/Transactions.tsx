@@ -4,9 +4,11 @@ import { ScenarioSelector } from '../components/ScenarioSelector';
 import { ScenarioForm } from '../components/ScenarioForms';
 import { ScenarioType, ScenarioParams, generateLedgerEntries } from '../engines/ScenarioLogic';
 import { useData } from '../contexts/DataContext';
+import { useToast } from '../contexts/ToastContext';
 
 const Transactions: React.FC = () => {
   const { accounts, refreshData } = useData();
+  const { showToast } = useToast();
   const [transactionGroups, setTransactionGroups] = useState<TransactionGroup[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -25,8 +27,12 @@ const Transactions: React.FC = () => {
     try {
       const offset = (currentPage - 1) * LIMIT;
       const response = await window.ipcRenderer.invoke('db:get-transaction-groups', { limit: LIMIT, offset });
-      setTransactionGroups(response.groups);
-      setTotalCount(response.total);
+      if (response.success && response.data) {
+        setTransactionGroups(response.data.groups);
+        setTotalCount(response.data.total);
+      } else {
+        console.error('Failed to load transaction groups:', response.error);
+      }
     } catch (err) {
       console.error('Failed to load transaction groups:', err);
     }
@@ -42,15 +48,16 @@ const Transactions: React.FC = () => {
       const result = await window.ipcRenderer.invoke('db:add-transaction-group', ledgerEntries);
       
       if (result.success) {
+        showToast('Transaction saved successfully!', 'success');
         setSelectedScenario(null); // Close form
         loadTransactionGroups(); // Reload list
         refreshData();
       } else {
-        alert('Failed to save transaction');
+        showToast(result.error?.message || 'Failed to save transaction', 'error');
       }
     } catch (err: any) {
       console.error('Transaction Error:', err);
-      alert(err.message || 'An error occurred while processing the transaction');
+      showToast(err.message || 'An error occurred while processing the transaction', 'error');
     } finally {
       setIsSubmitting(false);
     }
