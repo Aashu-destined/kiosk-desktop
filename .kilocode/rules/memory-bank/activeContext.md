@@ -33,9 +33,8 @@ The immediate focus is **Quality Assurance & Input Hardening**. The critical "Ph
 
 ## Immediate Next Steps (Todo)
 1.  **Input Hardening (AUDIT-017):** Implement strict positive integer validation for the "Internal Transfer" scenario in `ScenarioLogic.ts` and IPC handlers.
-2.  **User Verification (AUDIT-016):** Verify that the "Internal Transfer" UI correctly handles account selection and prevents invalid transfers (e.g., Source == Destination).
-3.  **Automated Assurance:** Create a dedicated test suite for Internal Transfers covering edge cases (negative amounts, self-transfers).
-4.  **Documentation:** Update user guide to reflect the new "Internal Transfer" feature.
+2.  **Automated Assurance:** Create a dedicated test suite for Internal Transfers covering edge cases (negative amounts, self-transfers).
+3.  **Documentation:** Update user guide to reflect the new "Internal Transfer" feature.
 
 ## Known Issues
 - **Input Validation Gap:** "Internal Transfer" currently lacks strict validation for negative numbers or zero values (AUDIT-017).

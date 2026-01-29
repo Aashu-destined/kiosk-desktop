@@ -118,7 +118,9 @@ export const generateLedgerEntries = (
 
             if (profitOnUs > 0) {
                 // Fix AUDIT-112: Profit credited to cash
+                // Fix AUDIT-114: Balance the ledger by transferring profit from OD to Cash
                 entries.push({ account_id: cashId, type: 'DEBIT', amount: profitOnUs, description: 'Commission (Cash)' });
+                entries.push({ account_id: odId, type: 'CREDIT', amount: profitOnUs, description: 'Commission Transfer from OD' });
                 entries.push({ account_id: revenueId, type: 'CREDIT', amount: profitOnUs, description: 'Service Revenue' });
             } else if (profitOnUs < 0) {
                 entries.push({ account_id: revenueId, type: 'DEBIT', amount: Math.abs(profitOnUs), description: 'Service Loss' });
@@ -141,7 +143,9 @@ export const generateLedgerEntries = (
 
              if (profitOffUs > 0) {
                 // Fix AUDIT-108/112: Profit credited to cash
+                // Fix AUDIT-114: Balance the ledger by transferring profit from OD to Cash
                 entries.push({ account_id: cashId, type: 'DEBIT', amount: profitOffUs, description: 'Commission (Cash)' });
+                entries.push({ account_id: odId, type: 'CREDIT', amount: profitOffUs, description: 'Commission Transfer from OD' });
                 entries.push({ account_id: revenueId, type: 'CREDIT', amount: profitOffUs, description: 'Service Revenue' });
             } else if (profitOffUs < 0) {
                 entries.push({ account_id: revenueId, type: 'DEBIT', amount: Math.abs(profitOffUs), description: 'Service Loss' });
@@ -184,8 +188,7 @@ export const generateLedgerEntries = (
             ];
 
             if (profitPP > 0) {
-                // Fix AUDIT-112: Profit credited to cash
-                entries.push({ account_id: cashId, type: 'DEBIT', amount: profitPP, description: 'Commission (Cash)' });
+                // Fix AUDIT-113: Profit stays in Bank Account (do not transfer to Cash)
                 entries.push({ account_id: revenueId, type: 'CREDIT', amount: profitPP, description: 'Service Revenue' });
             } else if (profitPP < 0) {
                 entries.push({ account_id: revenueId, type: 'DEBIT', amount: Math.abs(profitPP), description: 'Service Loss' });

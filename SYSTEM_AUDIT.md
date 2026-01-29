@@ -123,39 +123,30 @@ This audit focuses on the backend integrity, database reliability, and core busi
 - **Description:** Requirement: "difference amount will be credited to cash account". Implementation: Profit remains in OD.
 - **Resolution:** Refactored withdrawal scenarios to credit profit to the Cash account.
 
-### [AUDIT-113] - PhonePe Withdrawal Profit Allocation Mismatch [OPEN]
+### [AUDIT-113] - PhonePe Withdrawal Profit Allocation Mismatch [RESOLVED]
 - **Category:** Business Logic
 - **Section:** 3. Functional Logic
 - **Location:** `src/engines/ScenarioLogic.ts`
 - **Severity:** High
 - **Description:** The `PHONEPAY_WITHDRAWAL` logic currently credits profit to the **Cash Account** (attempting to mimic Kiosk logic), but `core_logic_live.md` (Sec 3) explicitly states that for PhonePe transactions, the difference (profit) should be credited to the **Bank Account**.
-- **Impact:** Incorrect profit tracking; Profit ends up in Cash (physically impossible as funds are in Bank) requiring manual transfers.
+- **Resolution:** Updated `ScenarioLogic.ts` to retain the profit in the Bank Account (Debit Bank Full Amount, Credit Cash Given, Credit Revenue Difference), ensuring it matches the physical flow of funds.
 
-### [AUDIT-114] - Unbalanced Ledger Entries in Withdrawals [OPEN]
+### [AUDIT-114] - Unbalanced Ledger Entries in Withdrawals [RESOLVED]
 - **Category:** Data Integrity
 - **Section:** 6. Data Integrity & Validation
 - **Location:** `src/engines/ScenarioLogic.ts`
 - **Severity:** Critical
 - **Description:** The logic for `KIOSK_WITHDRAWAL_ON_US`, `KIOSK_WITHDRAWAL_OFF_US`, and `PHONEPAY_WITHDRAWAL` generates unbalanced ledger entries. The code appends a profit entry (`Debit Cash`, `Credit Revenue`) without adjusting the main settlement entry or ensuring the total debits equal total credits. This results in `Total Debits = Settlement + Profit` vs `Total Credits = Settlement` (specifically for cases where profit is added on top of full settlement).
-- **Impact:** Fundamental accounting failure; Trial Balance will not zero.
+- **Resolution:** Refactored `ScenarioLogic.ts` to ensure all scenarios generate balanced ledger entries. For Withdrawals, the profit is now correctly handled by explicitly transferring the surplus from the Settlement Account to Cash (Debit Cash, Credit Settlement) alongside the Revenue recognition (Credit Revenue), ensuring Total Debits = Total Credits.
 
-### [AUDIT-115] - Internal Transfer Logic/Expectation Mismatch (OD Liability)
+### [AUDIT-115] - Internal Transfer Logic/Expectation Mismatch (OD Liability) [RESOLVED]
 - **Category:** Business Logic / UX
 - **Section:** 3. Functional Logic
 - **Location:** `src/engines/ScenarioLogic.ts`
 - **Severity:** High (User Confusion)
 - **Description:** The user expects withdrawing from an OD (Liability) account to *decrease* the balance. However, mathematically, withdrawing from a Liability *increases* the debt balance. The system currently correctly implements the accounting logic (Credit Liability = Increase), but this conflicts with the user's mental model.
-- **Steps to Reproduce:**
-    1. Select "Internal Transfer".
-    2. Source: OD Account (Liability).
-    3. Destination: Cash (Asset).
-    4. Amount: 1000.
-    5. Result: OD Balance increases by 1000.
-- **Expected vs. Actual:** User expected OD to decrease. Actual: OD increased.
-- **Impact:** User believes the system is miscalculating, leading to distrust.
-- **Suggested Fix:**
-    1. Clarify OD Account type (Asset vs Liability). If user views OD as "Bank Balance" (Asset) that can go negative, change type to ASSET.
-    2. Or, add UI hints explaining that for Liabilities, "Increase" means "More Debt".
+- **Resolution:** Changed OD Account type from LIABILITY to ASSET to match user mental model (Withdrawal = Decrease Balance). Added database migration to update existing accounts.
+- **Impact:** None (Resolved).
 
 
 ---
@@ -524,3 +515,234 @@ Manual testing is insufficient for financial logic.
     *   Self-transfers (Source = Dest).
     *   Negative amounts.
     *   Decimal rounding (ensure no fractional cents are lost).
+
+## 2.1 Audit Findings (Phase 2 - Backend & Architecture)
+
+### [AUDIT-310] - Double-Entry Integrity Failure (Input Validation)
+- **Category:** Data Integrity
+- **Section:** 6. Data Integrity & Validation
+- **Location:** `electron/handlers/transactionHandler.ts`
+- **Severity:** Critical
+- **Description:** The `add-transaction-group` handler validates that individual entry amounts are positive integers, but it fails to validate that the transaction group itself is balanced (i.e., `SUM(Debits) == SUM(Credits)`). A compromised or buggy frontend could insert unbalanced transactions, permanently corrupting the ledger.
+- **Suggested Fix:** Add a validation step before the database transaction to sum all entries and ensure the net difference is zero (or matches a specific checksum).
+
+### [AUDIT-311] - Missing Database Constraints (Positive Amounts)
+- **Category:** Data Integrity
+- **Section:** 6. Data Integrity & Validation
+- **Location:** `electron/db/schema.sql`
+- **Severity:** High
+- **Description:** The database schema defines `amount` as `INTEGER` but lacks a `CHECK (amount > 0)` constraint. While the application layer currently checks this, a "Defense in Depth" approach requires the database to reject negative values to prevent direct SQL manipulation or future bug regressions.
+- **Suggested Fix:** Add `CHECK (amount > 0)` to the `transactions` table definition.
+
+### [AUDIT-312] - Unrestricted Account Renaming (System Accounts)
+- **Category:** Business Logic
+- **Section:** 3. Functional Logic
+- **Location:** `electron/handlers/accountHandler.ts`
+- **Severity:** High
+- **Description:** The `update-account` handler allows renaming any account, including system-critical accounts like "Cash" or "OD Account". While the logic uses `slugs` (AUDIT-011) to protect calculation integrity, renaming these accounts can cause severe user confusion (e.g., renaming "Cash" to "Debt").
+- **Suggested Fix:** Prevent renaming if the account's `slug` is in a protected list (`cash`, `od_account`, `revenue`, `expenses`).
+
+### [AUDIT-313] - Negative Initial Balance Injection
+- **Category:** Data Integrity
+- **Section:** 6. Data Integrity & Validation
+- **Location:** `electron/handlers/accountHandler.ts`
+- **Severity:** High
+- **Description:** The `add-account` handler accepts `initialBalance` without validation. It is possible to create an account with a negative opening balance, which may be mathematically valid but semantically incorrect for certain account types (e.g., a physical Cash drawer cannot start with negative cash).
+- **Suggested Fix:** Validate `initialBalance >= 0` for Asset accounts.
+
+### [AUDIT-314] - Reconciliation Logic Flaw (Timestamp vs Date mismatch)
+- **Category:** Functional Logic
+- **Section:** 3. Functional Logic
+- **Location:** `electron/handlers/reconciliationHandler.ts`
+- **Severity:** Medium
+- **Description:** The reconciliation logic takes a `date` string (YYYY-MM-DD) from the frontend but queries transactions using a derived Unix `timestamp`. If the user enters a backdated transaction (e.g., entering yesterday's trade today), the transaction will have *today's* timestamp but *yesterday's* date. This causes the reconciliation logic to potentially exclude relevant transactions or include irrelevant ones depending on the time of execution.
+- **Suggested Fix:** Ensure queries filter by the Transaction Group's `date` column, not the `timestamp` of insertion.
+
+### [AUDIT-315] - Performance Risk: Missing Indexes
+- **Category:** Performance
+- **Section:** 10. Performance
+- **Location:** `electron/db/schema.sql`
+- **Severity:** Medium
+- **Description:** Critical query fields `transaction_groups.date` and `transactions.timestamp` are not indexed. As the dataset grows, dashboard trends and reconciliation queries (which filter by these fields) will trigger full table scans, causing UI lag.
+- **Suggested Fix:** Add `CREATE INDEX idx_groups_date ON transaction_groups(date);` and `CREATE INDEX idx_tx_timestamp ON transactions(timestamp);`.
+
+### [AUDIT-316] - Ephemeral Error Logging
+- **Category:** Reliability
+- **Section:** 14. Observability
+- **Location:** `electron/utils/ipcHelper.ts`
+- **Severity:** Low
+- **Description:** Errors are caught and logged via `console.error`, which only outputs to the terminal (if visible). In a production environment, these errors are lost, making it impossible to diagnose user-reported crashes or logic failures.
+- **Suggested Fix:** Implement a file-based logger (e.g., `electron-log`) to persist errors to a `logs/` directory in the user's data folder.
+
+### [AUDIT-317] - Dashboard Aggregation Performance
+- **Category:** Performance
+- **Section:** 10. Performance
+- **Location:** `electron/handlers/dashboardHandler.ts`
+- **Severity:** Medium
+- **Description:** The Dashboard logic performs real-time aggregation (`SUM`, `COUNT`) on the entire `transactions` table (joined with groups) for every page load. This is O(N) relative to history size.
+- **Suggested Fix:** Implement a caching strategy or use a Materialized View approach (e.g., a `daily_stats` table) updated via Triggers.
+
+---
+
+# SYSTEM AUDIT - Phase 3: Testing, Security, and Strategic Review
+
+## 1. Executive Summary
+Phase 3 focused on the "Meta" layer: Security, Testing, and Long-term Maintainability. While the application is functional, it lacks a robust safety net. Security was improved by enforcing CSP and Electron isolation. However, the testing infrastructure is currently unstable (AUDIT-332), and the lack of a Backup/Restore mechanism (AUDIT-333) is a critical user journey gap.
+
+## 2. Audit Findings (Security & Strategy)
+
+### [AUDIT-330] - Missing Content Security Policy (CSP) [RESOLVED]
+- **Category:** Security
+- **Section:** 9. Security
+- **Location:** `index.html`
+- **Severity:** High
+- **Description:** The application lacked a CSP meta tag, potentially allowing execution of malicious scripts if XSS vulnerabilities were introduced.
+- **Resolution:** Added `<meta http-equiv="Content-Security-Policy" ...>` to `index.html` allowing only `self` resources.
+
+### [AUDIT-331] - Implicit Electron Security Configuration [RESOLVED]
+- **Category:** Security
+- **Section:** 9. Security
+- **Location:** `electron/main.ts`
+- **Severity:** Medium
+- **Description:** `contextIsolation` and `nodeIntegration` were relying on defaults. Explicit configuration is best practice to prevent regressions.
+- **Resolution:** Explicitly set `contextIsolation: true` and `nodeIntegration: false` in `main.ts`.
+
+### [AUDIT-332] - Broken Unit Test Runner
+- **Category:** Testing
+- **Section:** 13. Testing
+- **Location:** `src/engines/ScenarioLogic.test.ts`
+- **Severity:** High
+- **Description:** Although `vitest` is installed, the test runner fails to recognize test suites in `.ts` files, likely due to a configuration mismatch with Vite/Electron. This prevents TDD and automated logic verification.
+- **Suggested Fix:** Fix `vite.config.ts` or `vitest.config.ts` to properly handle TypeScript in the Node environment for tests.
+
+### [AUDIT-333] - Missing Backup & Restore User Journey
+- **Category:** Strategic / User Journey
+- **Section:** 15. Maintenance
+- **Location:** `electron/handlers/*`
+- **Severity:** Critical
+- **Description:** The application relies entirely on a local SQLite file. There is no in-app mechanism for the user to Backup (Export DB) or Restore (Import DB). If the user's computer fails or the DB file is corrupted, all financial data is lost permanently.
+- **Suggested Fix:** Implement an "Export Data" button (copies `.db` file to user-selected location) and "Import Data" workflow.
+
+### [AUDIT-334] - Magic Strings in Core Logic
+- **Category:** Maintainability
+- **Section:** 12. Code Quality
+- **Location:** `src/engines/ScenarioLogic.ts`
+- **Severity:** Low
+- **Description:** Account slugs like `'cash'`, `'od_account'` are defined locally in `ScenarioLogic.ts`. If these slugs change in the DB seed or elsewhere, the logic will break silently.
+- **Suggested Fix:** Extract these into a shared `src/constants/accounts.ts` file used by both Seed scripts and Frontend logic.
+
+### [AUDIT-335] - Hardcoded UI Labels
+- **Category:** Maintainability
+- **Section:** 12. Code Quality
+- **Location:** `src/config/scenarioConfig.ts`
+- **Severity:** Low
+- **Description:** Labels like "Cash Given to Customer (₹)" are hardcoded. This makes potential localization or terminology changes difficult.
+- **Suggested Fix:** Move labels to a resource file.
+
+---
+
+## 2.2 Audit Findings (Phase 4 - Recursive Deep Dive)
+
+### [AUDIT-401] - Dependency Toolchain Mismatch
+- **Category:** Configuration / Build
+- **Section:** 4. Architecture & Config
+- **Location:** `package.json`
+- **Severity:** Medium
+- **Description:** The `scripts` section defines `"rebuild": "electron-rebuild"`, but the `devDependencies` installs `@electron/rebuild`. This package naming mismatch means the `npm run rebuild` command may fail or rely on a globally installed version of the deprecated `electron-rebuild` package, leading to unpredictable native module compilation (specifically for `better-sqlite3`).
+- **Suggested Fix:** Update the script to use `electron-rebuild` (if using the wrapper) or call the executable provided by `@electron/rebuild` directly, ensuring consistency.
+
+### [AUDIT-402] - Unsafe IPC Error Type Casting
+- **Category:** Type Safety
+- **Section:** 4. Architecture & Config
+- **Location:** `electron/utils/ipcHelper.ts`
+- **Severity:** Low
+- **Description:** The `handleIpcRequest` utility catches errors and returns `createErrorResponse(error) as any`. This `as any` cast completely erases type safety for the return value, potentially allowing the backend to return an error shape that the frontend does not expect or handle correctly.
+- **Suggested Fix:** Define a strict `IpcErrorResponse` interface and ensure `createErrorResponse` returns it, removing the `any` cast.
+
+### [AUDIT-403] - React Context Performance (Value Instability)
+- **Category:** Performance
+- **Section:** 10. Performance
+- **Location:** `src/contexts/DataContext.tsx`, `src/contexts/ThemeContext.tsx`, `src/contexts/ToastContext.tsx`
+- **Severity:** High
+- **Description:** The Context Providers (`DataProvider`, `ThemeProvider`, `ToastProvider`) pass a new object literal as the `value` prop on every render (e.g., `value={{ accounts, stats... }}`). This breaks object reference equality, forcing every consumer component (and often the entire component tree) to re-render whenever the Provider renders, even if the actual data hasn't changed. This negates the benefits of `React.memo` and causes unnecessary layout thrashing.
+- **Suggested Fix:** Wrap the context value object in `useMemo()` to ensure reference stability.
+
+### [AUDIT-404] - Ledger Integrity Failure (Unbalanced Transactions)
+- **Category:** Data Integrity
+- **Section:** 6. Data Integrity & Validation
+- **Location:** `electron/handlers/transactionHandler.ts`
+- **Severity:** Critical
+- **Description:** While `transactionHandler` validates individual entry amounts, it fails to verify the fundamental accounting equation: `Sum(Debits) == Sum(Credits)`. If a frontend bug or a malicious IPC call sends a transaction group where debits do not equal credits, the backend will accept it. This permanently corrupts the General Ledger, making the Trial Balance impossible to zero out.
+- **Suggested Fix:** Implement a pre-commit validation step in the `db.transaction` block that sums all entries (Debit +, Credit -) and throws an error if the net result is not zero.
+
+### [AUDIT-405] - Stale Data Propagation (Missing Refresh Triggers)
+- **Category:** State Management
+- **Section:** 11. State Management
+- **Location:** `src/pages/Settings.tsx`, `src/pages/Accounts.tsx`
+- **Severity:** Medium
+- **Description:** Updates to Accounts (e.g., renaming) or Settings do not consistently trigger a `refreshData()` call in the global `DataContext`. Consequently, other views like the Transaction List or Dashboard may display stale Account Names or IDs until a full page reload occurs.
+- **Suggested Fix:** Ensure that all mutation handlers (`update-account`, `save-setting`) explicitly call `refreshData()` from the `useData` hook upon success.
+
+### [AUDIT-406] - Fragile Parameter Validation (Manual vs Schema)
+- **Category:** Code Quality
+- **Section:** 12. Code Quality
+- **Location:** `src/engines/ScenarioLogic.ts`
+- **Severity:** Medium
+- **Description:** Input validation is currently performed via manual `if` checks (e.g., `if (params.amount === undefined)`). This is verbose, error-prone, and inconsistent across different scenarios. As the application grows, this manual validation will become a maintenance burden and a source of bugs (e.g., forgetting to check for `NaN` or `Infinity`).
+- **Suggested Fix:** Adopt a schema validation library like `Zod` to define strict input shapes for each Scenario Type and parse inputs automatically.
+
+---
+
+## 2.3 Audit Findings (Phase 5 - Stress & Scale Simulation)
+
+### [AUDIT-501] - Missing Early Return Guard in Frontend Submission
+- **Category:** Concurrency / UX
+- **Section:** 8. User Experience (UX)
+- **Location:** `src/pages/Transactions.tsx`
+- **Severity:** Low
+- **Description:** The `handleScenarioSubmit` function manages an `isSubmitting` state to disable the UI button, but it lacks an explicit early return guard (`if (isSubmitting) return`) at the start of the function. This theoretically allows multiple invocations of the submission logic if the function is triggered programmatically, via keyboard events, or if the UI update lags behind a rapid double-click.
+- **Suggested Fix:** Add `if (isSubmitting) return;` at the very beginning of the `handleScenarioSubmit` function.
+
+### [AUDIT-502] - Missing Database Index on `transaction_groups.date`
+- **Category:** Performance
+- **Section:** 10. Performance
+- **Location:** `electron/db/schema.sql`, `electron/handlers/dashboardHandler.ts`
+- **Severity:** Medium
+- **Description:** The Dashboard's "Daily Profit" and "Trend Analysis" queries heavily filter `transaction_groups` by the `date` column. Currently, `transaction_groups.date` is not indexed. This forces SQLite to perform a Full Table Scan on `transaction_groups` (and potentially `transactions` via joins) every time the dashboard loads. As the history grows, this will cause significant performance degradation.
+- **Suggested Fix:** Add `CREATE INDEX IF NOT EXISTS idx_tg_date ON transaction_groups(date);`.
+
+### [AUDIT-503] - Missing Foreign Key Index on `transactions.group_id`
+- **Category:** Performance
+- **Section:** 10. Performance
+- **Location:** `electron/db/schema.sql`
+- **Severity:** Medium
+- **Description:** Almost every read query involving transactions joins the `transactions` table with `transaction_groups` using the `group_id` foreign key. While `better-sqlite3` enforces FK constraints, SQLite does not automatically index foreign key columns. Lack of an index here means joins can become inefficient (scanning the child table) as the dataset grows.
+- **Suggested Fix:** Add `CREATE INDEX IF NOT EXISTS idx_transactions_group_id ON transactions(group_id);`.
+
+
+---
+
+# 3. Final Risk Assessment & Remediation Strategy
+
+### 3.1 Overall System Health Score: 5/10 (Critical Logic Gaps)
+The application has improved significantly from the initial audit (Score 4/10). Critical accounting logic errors (AUDIT-002, AUDIT-112) and security gaps (AUDIT-330) have been resolved. However, the lack of automated testing (AUDIT-332) and the absence of a Backup strategy (AUDIT-333) mean the system is effectively a "Black Box" that is risky to modify and risky to rely on for long-term business data.
+
+### 3.2 Top 3 Critical Fixes (Post-Audit)
+
+1.  **Implement Backup/Restore (AUDIT-333):** 
+    *   *Why:* Without this, a single hardware failure destroys the business's financial history. This is the single highest real-world risk.
+    *   *Action:* Create `backupHandler.ts` to copy `database.db` to a user-selected path.
+
+2.  **Fix Test Infrastructure (AUDIT-332):**
+    *   *Why:* We cannot safely refactor or "harden" input validation without working tests. The current "Manual QA" approach is not scalable.
+    *   *Action:* Debug `vitest` config to ensure it can run `ScenarioLogic.test.ts`.
+
+3.  **Enforce Input Hardening (AUDIT-017 / AUDIT-310):**
+    *   *Why:* Preventing bad data (negative numbers, unbalanced transactions) is easier than fixing corrupted ledgers later.
+    *   *Action:* Implement the `Zod` validation schemas and DB constraints identified in Phase 2.
+
+### 3.3 Roadmap to Beta
+1.  **Week 1:** Fix Backup/Restore & Test Runner.
+2.  **Week 2:** Implement Input Hardening & DB Constraints.
+3.  **Week 3:** User Acceptance Testing (UAT) focusing on the "Internal Transfer" flow.
+

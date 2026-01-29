@@ -113,6 +113,19 @@ try {
     // We don't throw here to allow seed logic to run, but in a real app we might
 }
 
+// Migration AUDIT-115: Enforce OD Account as ASSET (for correct Transfer logic)
+try {
+    const odAccount = db.prepare("SELECT type FROM accounts WHERE slug = 'od_account'").get() as { type: string } | undefined;
+    
+    if (odAccount && odAccount.type === 'LIABILITY') {
+        console.log('Migrating OD Account from LIABILITY to ASSET (AUDIT-115)...');
+        db.prepare("UPDATE accounts SET type = 'ASSET' WHERE slug = 'od_account'").run();
+        console.log('Migration (AUDIT-115) successful.');
+    }
+} catch (error) {
+    console.error('Migration (AUDIT-115) failed:', error);
+}
+
 // Seed Default Accounts if they don't exist
 const seedAccounts = [
     { name: 'Cash', slug: 'cash', type: 'ASSET' },
