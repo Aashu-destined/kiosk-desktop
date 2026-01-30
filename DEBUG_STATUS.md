@@ -439,3 +439,16 @@
 *   **Issue:** `INTERNAL_TRANSFER` scenario in `ScenarioLogic.ts` lacks validation for negative/zero amounts.
 *   **Resolution:** Added strict validation checks (`amount <= 0`) to `INTERNAL_TRANSFER` case in `src/engines/ScenarioLogic.ts`.
 
+### 35. [AUDIT-201] Missing "Capital Infusion" Capability
+*   **Status:** Resolved
+*   **Issue:** Missing ability to inject initial capital (Equity).
+*   **Source:** `SYSTEM_AUDIT.md` (AUDIT-201)
+*   **Resolution:**
+    *   Updated `electron/db/index.ts` to seed "Owners Equity" account and `EQUITY` type.
+    *   Updated `src/engines/ScenarioLogic.ts` to implement `CAPITAL_INFUSION` logic (Credit Equity, Debit Asset).
+    *   Updated `src/config/scenarioConfig.ts` to expose UI.
+    *   Updated `src/components/ScenarioSelector.tsx` to add button.
+*   **Verification:**
+    *   Created `scripts/verify_audit_201.ts` to verify ledger generation logic.
+    *   Result: PASS.
+

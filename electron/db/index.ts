@@ -126,13 +126,27 @@ try {
     console.error('Migration (AUDIT-115) failed:', error);
 }
 
+// Migration AUDIT-201: Add Owners Equity Account
+try {
+    const equityAccount = db.prepare("SELECT id FROM accounts WHERE slug = 'equity'").get();
+    
+    if (!equityAccount) {
+        console.log('Seeding Owners Equity Account (AUDIT-201)...');
+        db.prepare("INSERT INTO accounts (name, slug, type, current_balance) VALUES ('Owners Equity', 'equity', 'EQUITY', 0)").run();
+        console.log('Seeding (AUDIT-201) successful.');
+    }
+} catch (error) {
+    console.error('Migration (AUDIT-201) failed:', error);
+}
+
 // Seed Default Accounts if they don't exist
 const seedAccounts = [
     { name: 'Cash', slug: 'cash', type: 'ASSET' },
     { name: 'OD Account', slug: 'od_account', type: 'ASSET' },
     { name: 'Bank Account', slug: 'bank_account', type: 'ASSET' },
     { name: 'Revenue', slug: 'revenue', type: 'REVENUE' },
-    { name: 'Expenses', slug: 'expenses', type: 'EXPENSE' }
+    { name: 'Expenses', slug: 'expenses', type: 'EXPENSE' },
+    { name: 'Owners Equity', slug: 'equity', type: 'EQUITY' }
 ];
 
 const insertAccount = db.prepare('INSERT OR IGNORE INTO accounts (name, slug, type) VALUES (@name, @slug, @type)');

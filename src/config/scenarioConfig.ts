@@ -53,6 +53,12 @@ export const SCENARIO_CONFIG: Record<ScenarioType, ScenarioConfig> = {
       { name: 'digital_out', label: 'Digital Paid (Out) (₹)', required: false }
     ]
   },
+  'CAPITAL_INFUSION': {
+    fields: [
+      { name: 'amount', label: 'Investment Amount (₹)', required: true },
+      { name: 'toAccountId', label: 'Deposit Into', required: true, type: 'select' }
+    ]
+  },
   'INTERNAL_TRANSFER': {
     fields: [
       { name: 'amount', label: 'Transfer Amount (₹)', required: true },

@@ -1,130 +1,121 @@
-# SYSTEM AUDIT - Phase 1: Backend, Data Layer, and Core Logic
+# System Audit Report
 
-## 1. Executive Summary
-This audit focuses on the backend integrity, database reliability, and core business logic of the `kiosk-desktop` application. While basic accounting logic appears to be directionally correct following previous fixes, significant risks remain regarding data precision, database constraints, and timezone handling. The application relies on floating-point arithmetic for financial calculations, which is prone to rounding errors. Additionally, foreign key constraints are not enforced, risking data orphans, and the reconciliation logic contains fragile hardcoded dependencies. Recent comparisons with `core_logic_live.md` have confirmed discrepancies in profit allocation logic and missing features for internal transfers.
+**Date:** 2026-01-30
+**Scope:** Core Logic, Data Integrity, and Feature Completeness
+**Reference:** `core_logic_live.md`, `ScenarioLogic.ts`, `schema.sql`
 
 ---
 
-## 2. Audit Findings (Backend & Logic)
+## 1. Feature Gaps
 
-### [AUDIT-001] - Reconciliation Schema Mismatch [RESOLVED]
-- **Category:** Data Integrity
-- **Section:** 3. Functional Logic
-- **Location:** `electron/handlers/reconciliationHandler.ts` / `electron/db/schema.sql`
+**[AUDIT-201] - Missing "Capital Infusion" / Initial Balance Capability [RESOLVED]**
+- **Category:** Missing Feature
+- **Section:** Financial Core
+- **Location:** `src/engines/ScenarioLogic.ts`, `electron/db/index.ts`
 - **Severity:** Critical
-- **Description:** Previous reports indicated a crash where `reconciliationHandler.ts` attempted to query a `source_account_id` column. Verified that the current codebase correctly uses `account_id` consistent with the schema.
-- **Impact:** None (Resolved).
-- **Resolution:** Confirmed `reconciliationHandler.ts` uses normalized `account_id` lookups.
+- **Description:** The system lacked a mechanism for the business owner to input initial capital.
+- **Resolution:**
+  - Added "Owners Equity" account (Type: EQUITY) to database seed in `electron/db/index.ts`.
+  - Implemented `CAPITAL_INFUSION` scenario in `ScenarioLogic.ts` which Credits Equity and Debits a selected Asset account.
+  - Added UI support in `ScenarioSelector.tsx` and `scenarioConfig.ts`.
 
-### [AUDIT-002] - Accounting Logic Inversion (Liability Accounts) [RESOLVED]
+---
+
+## 2. Core Logic Discrepancies
+
+**[AUDIT-202] - Ambiguous "On-Us" Kiosk Withdrawal Logic** [No need to resolve untill explicitely mentioned to resolve this audit 202]
 - **Category:** Business Logic
-- **Section:** 3. Functional Logic
-- **Location:** `src/engines/ScenarioLogic.ts`
-- **Severity:** Critical
-- **Description:** The user's mental model for Liability accounts (OD) follows an inverted structure where "Credit" (Money In) is perceived as an increase in available funds.
-- **Resolution:** Verified that "OD Account" is seeded as an `ASSET` type in `electron/db/index.ts`. This ensures that `DEBIT` transactions (Money In) increase the balance (positive number), matching the user's expectation of "Funds Available" going up, even if the accounting term is "Debit".
-- **Impact:** None (Resolved).
+- **Section:** Scenario Engine
+- **Location:** `src/engines/ScenarioLogic.ts` (Lines 107-130)
+- **Severity:** Medium
+- **Description:** The requirements (`core_logic_live.md` line 16) state: "I charge money... except when transection is through kiyosh -> money withdrawn -> transection type is 'on-us'". This implies "On-Us" transactions should not incur a service fee or follow a different profit model. However, the code applies the exact same "Profit = Settled - Given" logic as "Off-Us" transactions.
+- **Steps to Reproduce:**
+  1. Select "Kiosk Withdrawal (On-Us)".
+  2. Enter Amount: 1000, Settled: 1010.
+  3. Logic calculates ₹10 profit and credits Revenue.
+- **Expected vs. Actual:**
+  - **Expected:** Clarification on whether "On-Us" implies Zero Profit or if the "exception" refers to *how* the charge is collected. If it's truly fee-free, the inputs should be simplified or profit forced to 0.
+  - **Actual:** Code treats it identical to "Off-Us" regarding profit calculation.
+- **Impact:** Potential for systematic over-reporting of revenue if "On-Us" transactions are intended to be non-revenue generating services for own-bank customers.
+- **Evidence:** `ScenarioLogic.ts` Line 112: `const profitOnUs = settledOnUs - cashGivenOnUs;`.
+- **Suggested Fix:** Consult with the stakeholder. If "On-Us" is fee-free, hide the "Settled" field in UI (auto-match Amount) or force profit to 0 in logic.
 
-### [AUDIT-101] - Floating Point Precision Errors in Financial Calculations [RESOLVED]
+**[AUDIT-203] - Lack of Negative Balance Validation (Overdrawing Cash)**
 - **Category:** Data Integrity
-- **Section:** 6. Data Integrity & Validation
-- **Location:** `src/engines/ScenarioLogic.ts` (Lines 116, 171, 195, 227), `electron/db/schema.sql` (Line 6)
-- **Severity:** High
-- **Description:** The application used standard JavaScript `number` (IEEE 754 floating point) and SQLite `REAL` for all monetary values. Financial applications must use integer-based math (storing cents) or decimal data types to avoid precision loss.
-- **Resolution:** Migrated database to store amounts as `INTEGER` (cents/paise). Refactored `ScenarioLogic.ts` and UI components to use integer-based calculations. Added utility for formatting display values.
-- **Impact:** None (Resolved).
+- **Section:** Validation Logic
+- **Location:** `src/engines/ScenarioLogic.ts`
+- **Severity:** Medium
+- **Description:** The system allows scenarios to execute regardless of the source account's current balance. For example, a user can "Transfer" ₹5000 from Cash to Bank even if the Cash balance is ₹0, resulting in a physically impossible negative cash balance (-₹5000). While typical in double-entry systems to allow correction, it poses a risk for a physical Kiosk application where "Cash in Hand" cannot be negative.
+- **Steps to Reproduce:**
+  1. Ensure Cash balance is 0.
+  2. Perform an "Internal Transfer" of ₹100 from Cash to Bank.
+  3. Transaction succeeds; Cash becomes -₹100.
+- **Expected vs. Actual:**
+  - **Expected:** A warning or soft-block if the source Asset account (Cash) has insufficient funds.
+  - **Actual:** Transaction is processed blindly.
+- **Impact:** "Cash in Hand" reports become nonsensical (negative values), reducing trust in the dashboard metrics.
+- **Evidence:** `ScenarioLogic.ts` validates `amount > 0` but does not check `current_balance`.
+- **Suggested Fix:** Pass `current_balance` map to `ScenarioLogic` or perform a pre-check in `transactionHandler` to warn/block if an Asset account goes negative (optional config).
 
-### [AUDIT-102] - Missing Foreign Key Enforcement [RESOLVED]
+---
+
+## 3. General Technical Audit
+
+**[AUDIT-204] - Implicit Floating Point Rounding Risk**
 - **Category:** Data Integrity
-- **Section:** 6. Data Integrity & Validation
-- **Location:** `electron/db/index.ts`
-- **Severity:** High
-- **Description:** `better-sqlite3` does not enable Foreign Key constraints by default.
-- **Resolution:** Added `db.pragma('foreign_keys = ON');` to database initialization in `electron/db/index.ts`.
-- **Impact:** None (Resolved).
+- **Section:** Math Utils
+- **Location:** `src/engines/ScenarioLogic.ts` (Line 64)
+- **Severity:** Low
+- **Description:** The helper `toInt` uses `Math.round(num * 100)`. If a user enters a value with more than 2 decimal places (e.g., via a paste operation or calculation error like `10.505`), it is silently rounded. While currently inputs are likely controlled, this implicit behavior can mask precision errors.
+- **Steps to Reproduce:**
+  1. Call `toInt(10.505)`.
+  2. Result is `1051` (10.51).
+- **Expected vs. Actual:**
+  - **Expected:** Strict validation rejecting >2 decimal places to ensure intentionality.
+  - **Actual:** Silent rounding.
+- **Impact:** Minor accounting discrepancies of ₹0.01 if precision is ignored.
+- **Evidence:** `const toInt = ... Math.round(num * 100);`
+- **Suggested Fix:** Add validation regex `^\d+(\.\d{1,2})?$` in the UI or Backend before conversion.
 
-### [AUDIT-103] - Hardcoded Account Dependency in Reconciliation [RESOLVED]
-- **Category:** Functional Logic
-- **Section:** 3. Functional Logic
-- **Location:** `electron/handlers/reconciliationHandler.ts`
-- **Severity:** High
-- **Description:** The reconciliation handler explicitly queries for an account named `'Cash'`. If the user renames the "Cash" account, the reconciliation feature will fail or default to an incorrect account.
-- **Resolution:** Updated query to use `slug = 'cash'`, ensuring resilience against display name changes.
-
-### [AUDIT-104] - Timezone-Unaware Date Handling [RESOLVED]
-- **Category:** Functional Logic
-- **Section:** 3. Functional Logic
-- **Location:** `src/engines/ScenarioLogic.ts`
+**[AUDIT-205] - Hardcoded Account Slugs Dependency**
+- **Category:** Architecture
+- **Section:** Configuration
+- **Location:** `src/engines/ScenarioLogic.ts` (Lines 49-55) vs `electron/db/index.ts`
 - **Severity:** Medium
-- **Description:** The application generates dates using UTC. For users in non-UTC timezones, late-night transactions may be recorded on the previous day.
-- **Resolution:** Switched to local date generation (`toLocaleDateString('en-CA')`).
+- **Description:** The `ScenarioLogic` relies on hardcoded string slugs (`cash`, `od_account`, etc.) to find account IDs. While the database seed script creates these, there is no guarantee that the database state matches these hardcoded values (e.g., if a user manually edits the DB or migration fails).
+- **Steps to Reproduce:**
+  1. Manually change the slug of 'Cash' account in DB to 'cash_main'.
+  2. Attempt any transaction.
+  3. System crashes with `Error: Account cash not found`.
+- **Expected vs. Actual:**
+  - **Expected:** System should fail gracefully or load configuration from DB at startup.
+  - **Actual:** Runtime dependency on string constants matching DB state.
+- **Impact:** Brittle linkage between Code and Data. Renaming an account in the DB breaks the entire application.
+- **Evidence:** `const ACC = { CASH: 'cash', ... }`
+- **Suggested Fix:** Load Account Configuration from DB on startup (React Context or Redux) and map IDs to logical roles, reducing reliance on hardcoded slugs in the engine.
 
-### [AUDIT-105] - Stale Reconciliation Snapshots [RESOLVED]
-- **Category:** Data Integrity
-- **Section:** 11. State Management
-- **Location:** `electron/handlers/reconciliationHandler.ts`
-- **Severity:** Medium
-- **Description:** `daily_records` stores a snapshot of `cash_closing_calculated`. If past transactions are edited, this snapshot becomes stale.
-- **Resolution:** Implemented status invalidation in `transactionHandler.ts`. Adding new transactions now resets the `status` of that day's reconciliation to `'OPEN'`.
+---
 
-### [AUDIT-106] - Zero-Trust Input Validation Failure [RESOLVED]
-- **Category:** Data Integrity
-- **Section:** 6. Data Integrity & Validation
-- **Location:** `electron/handlers/transactionHandler.ts`
-- **Severity:** Medium
-- **Description:** API endpoints trust frontend payloads implicitly (e.g., negative amounts).
-- **Resolution:** Added server-side validation in IPC handlers to reject invalid/negative amounts and missing fields.
+## Risk Assessment & Remediation Strategy
 
-### [AUDIT-107] - Reconciliation Read Isolation Failure (Race Condition) [RESOLVED]
-- **Category:** State Management
-- **Section:** 11. State Management
-- **Location:** `electron/handlers/reconciliationHandler.ts`
-- **Severity:** Medium
-- **Description:** Read-Compute sequence is not atomic. New transactions during computation can skew the Opening Balance calculation.
-- **Resolution:** Wrapped the entire read-compute sequence in a `db.transaction`.
+### Executive Summary
+The system's core logic for handling standard transactions (Off-Us Withdrawal, PhonePe, Service Sales) is sound and compliant with the "Double-Entry" requirement. However, the **inability to inject initial capital (AUDIT-201)** is a critical blocker for real-world usage. A shop owner cannot start using this software without a way to represent their existing cash/bank position.
 
-### [AUDIT-108] - Ambiguous Profit Logic for Off-Us Withdrawals [RESOLVED]
-- **Category:** Functional Logic
-- **Section:** 3. Functional Logic
-- **Location:** `src/engines/ScenarioLogic.ts`
-- **Severity:** Low (Ambiguity)
-- **Description:** `ScenarioLogic` leaves profit in OD (Settlement - Cash Given). `core_logic_live.md` suggests profit should be credited to Cash.
-- **Resolution:** Updated `ScenarioLogic.ts` to credit profit to the Cash account (Debit Cash, Credit Revenue).
+### Prioritization Matrix
 
-### [AUDIT-109] - Dashboard Logic Fragility (Hardcoded Account Name) [RESOLVED]
-- **Category:** Functional Logic
-- **Section:** 3. Functional Logic
-- **Location:** `electron/handlers/dashboardHandler.ts`
-- **Severity:** Medium
-- **Description:** Dashboard looks for account named `'Cash'`. Renaming fails the query.
-- **Resolution:** Updated query to use `slug = 'cash'`.
+| ID | Issue | Priority | Effort |
+| :--- | :--- | :--- | :--- |
+| **AUDIT-201** | **Missing Capital Infusion** | **P0 (Critical)** | **Low** |
+| AUDIT-202 | "On-Us" Logic Ambiguity | P1 (High) | Low |
+| AUDIT-203 | Negative Balance Validation | P2 (Medium) | Medium |
+| AUDIT-205 | Hardcoded Slugs | P3 (Low) | High |
+| AUDIT-204 | Rounding Risk | P3 (Low) | Low |
 
-### [AUDIT-110] - Data Loss in On-Us Withdrawals [RESOLVED]
-- **Category:** Functional Logic
-- **Section:** 3. Functional Logic
-- **Location:** `src/engines/ScenarioLogic.ts`
-- **Severity:** High
-- **Description:** `KIOSK_WITHDRAWAL_ON_US` ignores `total_settled` input, assuming it equals `amount`. Any difference (fee/loss) is silently discarded.
-- **Resolution:** Incorporation of `total_settled` into logic; differences are now recorded as Revenue/Loss.
+### Strategic Recommendations
+1.  **Immediate Fix (P0):** Implement `CAPITAL_INFUSION` scenario and ensure an Equity account exists. This makes the app usable for Day 1.
+2.  **Clarify Logic (P1):** Confirm with the user if "On-Us" transactions should enforce Zero Profit.
+3.  **Harden Validation (P2):** Add "Insufficient Funds" warnings to the UI to prevent accidental negative cash balances.
 
-### [AUDIT-111] - Missing Business Logic: Internal Transfers [RESOLVED]
-- **Category:** Functional Logic
-- **Section:** 3. Functional Logic
-- **Location:** `src/engines/ScenarioLogic.ts`
-- **Severity:** High
-- **Description:** No scenario exists for "Internal Transfer" (rebalancing Cash/Bank/OD) as required by `core_logic_live.md`.
-- **Resolution:** Implemented `INTERNAL_TRANSFER` scenario.
-
-### [AUDIT-112] - Profit Allocation Logic Mismatch (Cash vs OD) [RESOLVED]
-- **Category:** Business Logic
-- **Section:** 3. Functional Logic
-- **Location:** `src/engines/ScenarioLogic.ts`
-- **Severity:** Medium
-- **Description:** Requirement: "difference amount will be credited to cash account". Implementation: Profit remains in OD.
-- **Resolution:** Refactored withdrawal scenarios to credit profit to the Cash account.
-
-### [AUDIT-113] - PhonePe Withdrawal Profit Allocation Mismatch [RESOLVED]
-- **Category:** Business Logic
 - **Section:** 3. Functional Logic
 - **Location:** `src/engines/ScenarioLogic.ts`
 - **Severity:** High

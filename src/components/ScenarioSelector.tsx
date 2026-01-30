@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowDownToLine, ArrowUpFromLine, Smartphone, Layers, Printer, Wallet } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, Smartphone, Layers, Printer, Wallet, Landmark } from 'lucide-react';
 import clsx from 'clsx';
 import { ScenarioType } from '../engines/ScenarioLogic';
 
@@ -44,6 +44,12 @@ const scenarios: Array<{ id: ScenarioType; label: string; icon: React.ReactNode;
     label: 'Service Sale / General',
     icon: <Printer className="w-6 h-6" />,
     color: 'bg-orange-500/10 text-orange-400 border-orange-500/30 hover:bg-orange-500/20 hover:border-orange-400'
+  },
+  {
+    id: 'CAPITAL_INFUSION',
+    label: 'Capital Infusion',
+    icon: <Landmark className="w-6 h-6" />,
+    color: 'bg-green-500/10 text-green-400 border-green-500/30 hover:bg-green-500/20 hover:border-green-400'
   },
   {
     id: 'INTERNAL_TRANSFER',

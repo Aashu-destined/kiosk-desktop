@@ -7,7 +7,8 @@ export type ScenarioType =
     | 'PHONEPAY_WITHDRAWAL'
     | 'PHONEPAY_DEPOSIT'
     | 'SERVICE_SALE'
-    | 'INTERNAL_TRANSFER';
+    | 'INTERNAL_TRANSFER'
+    | 'CAPITAL_INFUSION';
 
 export interface ScenarioParams {
     amount?: number;        // Cash Amount (Given/Taken)
@@ -51,7 +52,8 @@ const ACC = {
     OD: 'od_account',
     BANK: 'bank_account',
     REVENUE: 'revenue',
-    EXPENSE: 'expenses'
+    EXPENSE: 'expenses',
+    EQUITY: 'equity'
 };
 
 /**
@@ -87,6 +89,7 @@ export const generateLedgerEntries = (
     const odId = findAccount(accounts, ACC.OD);
     const bankId = findAccount(accounts, ACC.BANK);
     const revenueId = findAccount(accounts, ACC.REVENUE);
+    const equityId = findAccount(accounts, ACC.EQUITY);
 
     let entries: TransactionGroupInput['entries'] = [];
     let groupDesc = description || '';
@@ -242,6 +245,22 @@ export const generateLedgerEntries = (
             }
 
             groupDesc = `Service Sale / General`;
+            break;
+
+        case 'CAPITAL_INFUSION':
+            // Fix AUDIT-201: Capital Infusion
+            if (params.amount === undefined || params.amount <= 0) {
+                throw new Error("Amount must be positive");
+            }
+            const capitalAmount = toInt(params.amount);
+            const destId = params.toAccountId || cashId; // Default to Cash if not specified
+
+            entries = [
+                { account_id: equityId, type: 'CREDIT', amount: capitalAmount, description: 'Capital Infusion (Equity)' },
+                { account_id: destId, type: 'DEBIT', amount: capitalAmount, description: 'Capital Received' }
+            ];
+
+            groupDesc = `Capital Infusion: ${capitalAmount / 100}`;
             break;
         
         case 'INTERNAL_TRANSFER':
